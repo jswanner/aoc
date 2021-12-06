@@ -1,0 +1,64 @@
+# Day 01
+
+## Setup
+
+```elixir
+defmodule Input do
+  def read_all(input), do: read_all(input, IO.gets(input), [])
+
+  defp read_all(_input, :eof, content), do: Enum.reverse(content)
+  defp read_all(input, data, content), do: read_all(input, IO.gets(input), [data | content])
+end
+
+coerce_input_stream = fn
+  input ->
+    input
+    |> Stream.map(&String.trim(&1))
+    |> Stream.reject(&Kernel.==(&1, ""))
+    |> Stream.map(&String.to_integer(&1))
+end
+
+example_input =
+  Input.read_all("example_input")
+  |> coerce_input_stream.()
+  |> Enum.to_list()
+```
+
+```elixir
+count_increases = fn list ->
+  {_, count} =
+    Enum.reduce(list, {hd(list), 0}, fn curr, {prev, count} ->
+      {curr, if(curr > prev, do: count + 1, else: count)}
+    end)
+
+  count
+end
+```
+
+```elixir
+count_increases.(example_input)
+```
+
+```elixir
+real_input =
+  Input.read_all("real_input")
+  |> coerce_input_stream.()
+  |> Enum.to_list()
+
+count_increases.(real_input)
+```
+
+```elixir
+measurements_to_windows = fn
+  measurements -> Stream.chunk_every(measurements, 3, 1, :discard)
+end
+
+sum_windows = fn
+  windows -> Stream.map(windows, &Enum.sum(&1))
+end
+
+measurements_to_windows.(real_input)
+|> sum_windows.()
+|> Enum.to_list()
+|> count_increases.()
+```

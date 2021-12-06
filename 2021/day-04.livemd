@@ -1,0 +1,184 @@
+# Day 04
+
+## Setup
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.4.0"}
+])
+```
+
+## Example input
+
+```elixir
+example_input = Kino.Input.textarea("example input:")
+```
+
+## Real input
+
+```elixir
+real_input = Kino.Input.textarea("real input: ")
+```
+
+## Part 1
+
+```elixir
+[draws | boards] =
+  real_input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+
+draws =
+  draws
+  |> String.split(",")
+  |> Enum.map(&String.to_integer/1)
+
+boards =
+  boards
+  |> Enum.map(&String.split/1)
+  |> Enum.map(&Enum.map(&1, fn n -> {String.to_integer(n), false} end))
+  |> Enum.chunk_every(5)
+
+apply_draw = fn
+  board, draw ->
+    board
+    |> Enum.map(fn row ->
+      row
+      |> Enum.map(fn
+        {num, false} when num == draw ->
+          {num, true}
+
+        row ->
+          row
+      end)
+    end)
+end
+
+winning_row? = fn
+  board ->
+    board
+    |> Enum.any?(fn row ->
+      row
+      |> Enum.all?(&elem(&1, 1))
+    end)
+end
+
+winning_column? = fn
+  board ->
+    board
+    |> Enum.zip()
+    |> Enum.map(&Tuple.to_list/1)
+    |> winning_row?.()
+end
+
+winning? = fn
+  board -> winning_row?.(board) || winning_column?.(board)
+end
+
+draws
+|> Enum.reduce_while(boards, fn draw, boards ->
+  boards =
+    boards
+    |> Enum.map(&apply_draw.(&1, draw))
+
+  winning_board =
+    boards
+    |> Enum.find(&winning?.(&1))
+
+  if winning_board do
+    sum =
+      winning_board
+      |> Enum.reduce(0, fn row, acc ->
+        row
+        |> Enum.reject(&elem(&1, 1))
+        |> Enum.map(&elem(&1, 0))
+        |> Enum.sum()
+        |> Kernel.+(acc)
+      end)
+
+    {:halt, sum * draw}
+  else
+    {:cont, boards}
+  end
+end)
+```
+
+## Part 2
+
+```elixir
+[draws | boards] =
+  real_input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+
+draws =
+  draws
+  |> String.split(",")
+  |> Enum.map(&String.to_integer/1)
+
+boards =
+  boards
+  |> Enum.map(&String.split/1)
+  |> Enum.map(&Enum.map(&1, fn n -> {String.to_integer(n), false} end))
+  |> Enum.chunk_every(5)
+
+apply_draw = fn
+  board, draw ->
+    board
+    |> Enum.map(fn row ->
+      row
+      |> Enum.map(fn
+        {num, false} when num == draw ->
+          {num, true}
+
+        row ->
+          row
+      end)
+    end)
+end
+
+winning_row? = fn
+  board ->
+    board
+    |> Enum.any?(fn row ->
+      row
+      |> Enum.all?(&elem(&1, 1))
+    end)
+end
+
+winning_column? = fn
+  board ->
+    board
+    |> Enum.zip()
+    |> Enum.map(&Tuple.to_list/1)
+    |> winning_row?.()
+end
+
+winning? = fn
+  board -> winning_row?.(board) || winning_column?.(board)
+end
+
+draws
+|> Enum.reduce_while(boards, fn draw, boards ->
+  boards =
+    boards
+    |> Enum.map(&apply_draw.(&1, draw))
+
+  if Enum.all?(boards, &winning?.(&1)) do
+    sum =
+      boards
+      |> hd()
+      |> Enum.reduce(0, fn row, acc ->
+        row
+        |> Enum.reject(&elem(&1, 1))
+        |> Enum.map(&elem(&1, 0))
+        |> Enum.sum()
+        |> Kernel.+(acc)
+      end)
+
+    {:halt, sum * draw}
+  else
+    {:cont, boards |> Enum.reject(&winning?.(&1))}
+  end
+end)
+```

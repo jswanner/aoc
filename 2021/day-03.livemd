@@ -1,0 +1,89 @@
+# Day 03
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.0"}])
+```
+
+```elixir
+example_input = Kino.Input.textarea("example data:")
+```
+
+```elixir
+real_input = Kino.Input.textarea("real data:")
+```
+
+## Part 1
+
+```elixir
+example_input
+|> Kino.Input.read()
+|> String.split("\n", trim: true)
+|> Enum.map(&String.split(&1, "", trim: true))
+|> Enum.zip()
+|> Enum.map(&Enum.frequencies(Tuple.to_list(&1)))
+|> Enum.reduce(["", ""], fn
+  %{"0" => zero, "1" => one}, [gamma, epsilon] ->
+    if zero > one, do: [gamma <> "0", epsilon <> "1"], else: [gamma <> "1", epsilon <> "0"]
+end)
+|> Enum.map(&String.to_integer(&1, 2))
+|> Enum.reduce(&Kernel.*(&1, &2))
+```
+
+## Part 2
+
+```elixir
+defmodule Filter do
+  def filter(input, pred, match), do: filter(input, pred, match, 0, length(Enum.at(input, 0)))
+
+  defp filter([filtered], _pred, _match, _at, _len), do: [filtered]
+  defp filter(filtered, _pred, _match, at, at), do: filtered
+
+  defp filter(filtered, pred, match, at, len) do
+    filtered
+    |> Enum.map(&Enum.at(&1, at))
+    |> Enum.frequencies()
+    |> Map.values()
+    |> then(&filter(filtered, pred, match, at, len, &1))
+  end
+
+  defp filter(filtered, pred, match, at, len, [same, same]) do
+    Enum.filter(filtered, &(Enum.at(&1, at) == match))
+    |> filter(pred, match, at + 1, len)
+  end
+
+  defp filter(filtered, pred, match, at, len, [_only]) do
+    Enum.filter(filtered, &(Enum.at(&1, at) == match))
+    |> filter(pred, match, at + 1, len)
+  end
+
+  defp filter(filtered, pred, match, at, len, [zero, one]) do
+    filtered =
+      if pred.(zero, one) do
+        Enum.filter(filtered, &(Enum.at(&1, at) == "0"))
+      else
+        Enum.filter(filtered, &(Enum.at(&1, at) == "1"))
+      end
+
+    filter(filtered, pred, match, at + 1, len)
+  end
+end
+
+real_input
+|> Kino.Input.read()
+|> String.split("\n", trim: true)
+|> Enum.map(&String.split(&1, "", trim: true))
+|> then(fn input ->
+  [
+    Filter.filter(input, &Kernel.>/2, "1")
+    |> Enum.map(&Enum.join/1)
+    |> Enum.map(&String.to_integer(&1, 2)),
+    Filter.filter(input, &Kernel.</2, "0")
+    |> Enum.map(&Enum.join/1)
+    |> Enum.map(&String.to_integer(&1, 2))
+  ]
+end)
+|> List.flatten()
+|> Enum.reduce(&Kernel.*(&1, &2))
+```

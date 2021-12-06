@@ -1,0 +1,82 @@
+# Day 02
+
+## Setup
+
+```elixir
+defmodule Input do
+  def read_all(input), do: read_all(input, IO.gets(input), [])
+
+  defp read_all(_input, :eof, content), do: Enum.reverse(content)
+  defp read_all(input, "", content), do: read_all(input, IO.gets(input), content)
+
+  defp read_all(input, data, content),
+    do: read_all(input, IO.gets(input), [String.trim(data) | content])
+end
+```
+
+## Inputs
+
+```elixir
+example_input = Input.read_all("example_input")
+real_input = Input.read_all("real_input")
+```
+
+## Part 1
+
+```elixir
+defmodule Calculate do
+  def calculate(input), do: calculate(input, {0, 0})
+
+  defp calculate([], {position, depth}), do: position * depth
+
+  defp calculate([<<"forward ", units::binary>> | rest], {position, depth}),
+    do: calculate(rest, {position + String.to_integer(units), depth})
+
+  defp calculate([<<"down ", units::binary>> | rest], {position, depth}),
+    do: calculate(rest, {position, depth + String.to_integer(units)})
+
+  defp calculate([<<"up ", units::binary>> | rest], {position, depth}),
+    do: calculate(rest, {position, depth - String.to_integer(units)})
+
+  defp calculate([_ | rest], state), do: calculate(rest, state)
+end
+```
+
+```elixir
+Calculate.calculate(example_input)
+```
+
+```elixir
+Calculate.calculate(real_input)
+```
+
+## Part 2
+
+```elixir
+defmodule Calculate2 do
+  def calculate(input), do: calculate(input, {0, 0, 0})
+
+  defp calculate([], {_aim, position, depth}), do: position * depth
+
+  defp calculate([<<"forward ", units::binary>> | rest], {aim, position, depth}) do
+    units = String.to_integer(units)
+    calculate(rest, {aim, position + units, depth + aim * units})
+  end
+
+  defp calculate([<<"down ", units::binary>> | rest], {aim, position, depth}),
+    do: calculate(rest, {aim + String.to_integer(units), position, depth})
+
+  defp calculate([<<"up ", units::binary>> | rest], {aim, position, depth}),
+    do: calculate(rest, {aim - String.to_integer(units), position, depth})
+
+  defp calculate([_ | rest], state), do: calculate(rest, state)
+end
+```
+
+```elixir
+Calculate2.calculate(example_input)
+```
+
+```elixir
+Calculate2.calculate(real_input)
+```

@@ -1,0 +1,122 @@
+# Day 05
+
+## Setup
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.4.1"}
+])
+```
+
+```elixir
+example_input = Kino.Input.textarea("example input:")
+```
+
+```elixir
+real_input = Kino.Input.textarea("real input:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Grid do
+  @enforce_keys [:coordinates]
+  defstruct coordinates: %{}
+
+  def new(x_size, y_size) do
+    for x <- 0..x_size, y <- 0..y_size, into: %{} do
+      {{x, y}, 0}
+    end
+    |> then(&struct!(__MODULE__, coordinates: &1))
+  end
+
+  def place(grid, []), do: grid
+
+  def place(%{coordinates: coordinates} = grid, [coord | rest]) do
+    place(%{grid | coordinates: update_in(coordinates, [coord], &(&1 + 1))}, rest)
+  end
+
+  def points_gte(grid, value) do
+    grid.coordinates
+    |> Map.values()
+    |> Enum.count(&(&1 >= value))
+  end
+end
+
+defmodule Line do
+  @enforce_keys [:coord1, :coord2]
+  defstruct coord1: [], coord2: []
+
+  def new([coord1, coord2]) do
+    struct!(__MODULE__, coord1: coord1, coord2: coord2)
+  end
+
+  def coordinates(%__MODULE__{coord1: [x1, y1], coord2: [x2, y2]})
+      when x1 == x2 or y1 == y2 do
+    for x <- x1..x2, y <- y1..y2, do: {x, y}
+  end
+
+  def coordinates(%{coord1: [x1, y1], coord2: [x2, y2]}) do
+    Enum.zip(x1..x2, y1..y2)
+  end
+
+  def valid?(%__MODULE__{coord1: [x, _], coord2: [x, _]}), do: true
+  def valid?(%__MODULE__{coord1: [_, y], coord2: [_, y]}), do: true
+  def valid?(_), do: false
+
+  def x_max(%__MODULE__{coord1: [x1, _], coord2: [x2, _]}), do: Enum.max([x1, x2])
+
+  def y_max(%__MODULE__{coord1: [_, y1], coord2: [_, y2]}), do: Enum.max([y1, y2])
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+to_integer = &String.to_integer/1
+
+lines =
+  real_input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+  |> Enum.map(&String.split(&1, [",", " -> "], trim: true))
+  |> Enum.map(&Enum.map(&1, to_integer))
+  |> Enum.map(&Enum.chunk_every(&1, 2))
+  |> Enum.map(&Line.new/1)
+
+[x_max, y_max] =
+  lines
+  |> Enum.reduce([0, 0], fn line, [x, y] ->
+    [[x, Line.x_max(line)], [y, Line.y_max(line)]]
+    |> Enum.map(&Enum.max/1)
+  end)
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+final_grid =
+  lines
+  |> Enum.filter(&Line.valid?/1)
+  |> Enum.reduce(Grid.new(x_max + 1, y_max + 1), fn line, grid ->
+    Grid.place(grid, Line.coordinates(line))
+  end)
+
+Grid.points_gte(final_grid, 2)
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+final_grid =
+  lines
+  |> Enum.reduce(Grid.new(x_max + 1, y_max + 1), fn line, grid ->
+    Grid.place(grid, Line.coordinates(line))
+  end)
+
+Grid.points_gte(final_grid, 2)
+```
