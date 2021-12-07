@@ -1,0 +1,67 @@
+# Day 06
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+```elixir
+defmodule ListSimulator do
+  def simulate(fish, 0), do: fish
+  def simulate(fish, day), do: simulate(fish, [], day)
+
+  def simulate([], fish, day), do: simulate(fish, day - 1)
+  def simulate([0 | rest], fish, day), do: simulate(rest, [6, 8 | fish], day)
+  def simulate([int | rest], fish, day), do: simulate(rest, [int - 1 | fish], day)
+end
+
+defmodule MapSimulator do
+  def new(list) do
+    Enum.reduce(list, %{}, fn i, acc -> Map.update(acc, i, 1, &(&1 + 1)) end)
+  end
+
+  def age(map, 0), do: map
+
+  def age(map, n) do
+    map
+    |> Enum.reduce(%{}, fn {i, count}, acc ->
+      case i do
+        0 ->
+          Map.update(acc, 6, count, &(&1 + count))
+          |> Map.update(8, count, &(&1 + count))
+
+        _ ->
+          Map.update(acc, i - 1, count, &(&1 + count))
+      end
+    end)
+    |> age(n - 1)
+  end
+
+  def total(map) do
+    map
+    |> Map.values()
+    |> Enum.sum()
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> Kino.Input.read()
+|> String.split(",")
+|> Enum.map(&String.to_integer/1)
+|> MapSimulator.new()
+|> MapSimulator.age(256)
+|> MapSimulator.total()
+```
