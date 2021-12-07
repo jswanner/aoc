@@ -1,0 +1,60 @@
+# Day 07
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Part 1
+
+```elixir
+real_input
+|> Kino.Input.read()
+|> String.split(",")
+|> Enum.map(&String.to_integer/1)
+|> then(fn list ->
+  cost = fn target ->
+    list
+    |> Enum.map(&Kernel.-(&1, target))
+    |> Enum.map(&Kernel.abs(&1))
+    |> Enum.sum()
+  end
+
+  0..Enum.max(list)
+  |> Enum.map(cost)
+  |> Enum.min()
+end)
+```
+
+## Part 2
+
+```elixir
+real_input
+|> Kino.Input.read()
+|> String.split(",")
+|> Enum.map(&String.to_integer/1)
+|> then(fn list ->
+  triangle = fn n -> div(n * (n + 1), 2) end
+
+  cost = fn target ->
+    list
+    |> Enum.map(&Kernel.-(&1, target))
+    |> Enum.map(&Kernel.abs(&1))
+    |> Enum.map(triangle)
+    |> Enum.sum()
+  end
+
+  0..Enum.max(list)
+  |> Enum.map(cost)
+  |> Enum.min()
+end)
+```
