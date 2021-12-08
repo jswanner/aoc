@@ -1,0 +1,182 @@
+# Day 08
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+# 1  4  7  8
+known_digit_lengths = [2, 4, 3, 7]
+
+real_input
+|> Kino.Input.read()
+|> String.split(["\n", " | "])
+|> Enum.drop_every(2)
+|> Enum.flat_map(&String.split/1)
+|> Enum.map(&String.length/1)
+|> Enum.frequencies()
+|> Map.take(known_digit_lengths)
+|> Map.values()
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+defmodule Entry do
+  @chars Enum.to_list(?a..?g)
+
+  @one [?c, ?f]
+  @four [?b, ?c, ?d, ?f]
+  @seven [?a, ?c, ?f]
+
+  @outputs %{
+    (@chars -- [?d]) => 0,
+    @one => 1,
+    (@chars -- [?b, ?f]) => 2,
+    (@chars -- [?b, ?e]) => 3,
+    @four => 4,
+    (@chars -- [?c, ?e]) => 5,
+    (@chars -- [?c]) => 6,
+    @seven => 7,
+    @chars => 8,
+    (@chars -- [?e]) => 9
+  }
+
+  def correct(decoder, outputs) do
+    outputs
+    |> Enum.map(fn string ->
+      String.split(string, "", trim: true)
+      |> Enum.map(fn s ->
+        s
+        |> to_charlist()
+        |> then(&Map.fetch!(decoder, &1))
+      end)
+      |> Enum.sort()
+      |> List.to_charlist()
+      |> then(&Map.fetch!(@outputs, &1))
+    end)
+  end
+
+  def decode(signals, mapping) do
+    possible_bs = find_b(signals, MapSet.new(@chars))
+    possible_gs = find_g(signals, MapSet.new(@chars))
+
+    mapping
+    |> decode_signals(signals)
+    |> deduce(possible_bs, possible_gs)
+    |> Enum.map(fn {k, v} -> {v, k} end)
+    |> Map.new()
+  end
+
+  defp decode_signals(mapping, []), do: mapping
+
+  defp decode_signals(mapping, [<<value::binary-size(2)>> | rest]) do
+    mangled_chars = to_charlist(value)
+
+    put_decoder(mapping, @one, mangled_chars)
+    |> update_decoder(@one, mangled_chars)
+    |> decode_signals(rest)
+  end
+
+  defp decode_signals(mapping, [<<value::binary-size(4)>> | rest]) do
+    update_decoder(mapping, @four, to_charlist(value))
+    |> decode_signals(rest)
+  end
+
+  defp decode_signals(mapping, [<<value::binary-size(3)>> | rest]) do
+    update_decoder(mapping, @seven, to_charlist(value))
+    |> decode_signals(rest)
+  end
+
+  defp decode_signals(mapping, [_ | rest]), do: decode_signals(mapping, rest)
+
+  # this function is not pretty....
+  defp deduce(orig, possible_bs, possible_gs) do
+    mapping =
+      orig
+      |> Map.update!(?b, &(MapSet.intersection(MapSet.new(&1), possible_bs) |> MapSet.to_list()))
+      |> Map.update!(?f, &(MapSet.intersection(MapSet.new(&1), possible_bs) |> MapSet.to_list()))
+      |> Map.update!(?g, &(MapSet.intersection(MapSet.new(&1), possible_gs) |> MapSet.to_list()))
+
+    mapping
+    |> Map.update!(?a, &(&1 -- mapping[?e]))
+    |> Map.update!(?b, &(&1 -- mapping[?g]))
+    |> Map.update!(?c, &(&1 -- mapping[?f]))
+    |> Map.update!(?d, &(&1 -- mapping[?b]))
+    |> Map.update!(?d, &(&1 -- mapping[?e]))
+    |> Map.update!(?e, &(&1 -- mapping[?g]))
+  end
+
+  defp find_b([], possibles), do: possibles
+
+  defp find_b([<<value::binary-size(6)>> | rest], possibles) do
+    find_b(rest, MapSet.intersection(MapSet.new(to_charlist(value)), possibles))
+  end
+
+  defp find_b([_ | rest], possibles), do: find_b(rest, possibles)
+
+  defp find_g([], possibles), do: possibles
+
+  defp find_g([<<value::binary-size(5)>> | rest], possibles) do
+    find_g(rest, MapSet.intersection(MapSet.new(to_charlist(value)), possibles))
+  end
+
+  defp find_g([_ | rest], possibles), do: find_g(rest, possibles)
+
+  defp put_decoder(mapping, known_chars, mangled_chars) do
+    known_chars
+    |> Enum.reduce(mapping, fn key, map ->
+      Map.put(map, key, mangled_chars)
+    end)
+  end
+
+  defp update_decoder(mapping, known_chars, mangled_chars) do
+    @chars
+    |> Kernel.--(known_chars)
+    |> Enum.reduce(mapping, fn key, map ->
+      Map.update!(map, key, &(&1 -- mangled_chars))
+    end)
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+initial_mapping =
+  ?a..?g
+  |> Enum.to_list()
+  |> then(fn list ->
+    list
+    |> Enum.zip(Stream.repeatedly(fn -> list end))
+    |> Map.new()
+  end)
+
+real_input
+|> Kino.Input.read()
+|> String.split(["\n", " | "])
+|> Enum.map(&String.split/1)
+|> Enum.chunk_every(2)
+|> Enum.map(fn [signals, outputs] ->
+  Entry.decode(signals, initial_mapping)
+  |> Entry.correct(outputs)
+  |> Enum.join()
+  |> String.to_integer()
+end)
+|> Enum.sum()
+```
