@@ -38,38 +38,36 @@ real_input
 
 ```elixir
 defmodule Entry do
-  @chars Enum.to_list(?a..?g)
+  @chars ~W[a b c d e f g]
 
-  @one [?c, ?f]
-  @four [?b, ?c, ?d, ?f]
-  @seven [?a, ?c, ?f]
+  @one ~W[c f]
+  @four ~W[b c d f]
+  @seven ~W[a c f]
 
   @outputs %{
-    (@chars -- [?d]) => 0,
+    (@chars -- ~W[d]) => 0,
     @one => 1,
-    (@chars -- [?b, ?f]) => 2,
-    (@chars -- [?b, ?e]) => 3,
+    (@chars -- ~W[b f]) => 2,
+    (@chars -- ~W[b e]) => 3,
     @four => 4,
-    (@chars -- [?c, ?e]) => 5,
-    (@chars -- [?c]) => 6,
+    (@chars -- ~W[c e]) => 5,
+    (@chars -- ~W[c]) => 6,
     @seven => 7,
     @chars => 8,
-    (@chars -- [?e]) => 9
+    (@chars -- ~W[e]) => 9
   }
+
+  defp chars(s), do: String.split(s, "", trim: true)
 
   def correct(decoder, outputs) do
     outputs
     |> Enum.map(fn string ->
       String.split(string, "", trim: true)
-      |> Enum.map(fn s ->
-        s
-        |> to_charlist()
-        |> then(&Map.fetch!(decoder, &1))
-      end)
+      |> Enum.map(&Map.fetch!(decoder, &1))
       |> Enum.sort()
-      |> List.to_charlist()
       |> then(&Map.fetch!(@outputs, &1))
     end)
+    |> Integer.undigits()
   end
 
   def decode(signals, mapping) do
@@ -79,14 +77,14 @@ defmodule Entry do
     mapping
     |> decode_signals(signals)
     |> deduce(possible_bs, possible_gs)
-    |> Enum.map(fn {k, v} -> {v, k} end)
+    |> Enum.map(fn {k, [v]} -> {v, k} end)
     |> Map.new()
   end
 
   defp decode_signals(mapping, []), do: mapping
 
   defp decode_signals(mapping, [<<value::binary-size(2)>> | rest]) do
-    mangled_chars = to_charlist(value)
+    mangled_chars = chars(value)
 
     put_decoder(mapping, @one, mangled_chars)
     |> update_decoder(@one, mangled_chars)
@@ -94,12 +92,12 @@ defmodule Entry do
   end
 
   defp decode_signals(mapping, [<<value::binary-size(4)>> | rest]) do
-    update_decoder(mapping, @four, to_charlist(value))
+    update_decoder(mapping, @four, chars(value))
     |> decode_signals(rest)
   end
 
   defp decode_signals(mapping, [<<value::binary-size(3)>> | rest]) do
-    update_decoder(mapping, @seven, to_charlist(value))
+    update_decoder(mapping, @seven, chars(value))
     |> decode_signals(rest)
   end
 
@@ -109,23 +107,23 @@ defmodule Entry do
   defp deduce(orig, possible_bs, possible_gs) do
     mapping =
       orig
-      |> Map.update!(?b, &(MapSet.intersection(MapSet.new(&1), possible_bs) |> MapSet.to_list()))
-      |> Map.update!(?f, &(MapSet.intersection(MapSet.new(&1), possible_bs) |> MapSet.to_list()))
-      |> Map.update!(?g, &(MapSet.intersection(MapSet.new(&1), possible_gs) |> MapSet.to_list()))
+      |> Map.update!("b", &(MapSet.intersection(MapSet.new(&1), possible_bs) |> MapSet.to_list()))
+      |> Map.update!("f", &(MapSet.intersection(MapSet.new(&1), possible_bs) |> MapSet.to_list()))
+      |> Map.update!("g", &(MapSet.intersection(MapSet.new(&1), possible_gs) |> MapSet.to_list()))
 
     mapping
-    |> Map.update!(?a, &(&1 -- mapping[?e]))
-    |> Map.update!(?b, &(&1 -- mapping[?g]))
-    |> Map.update!(?c, &(&1 -- mapping[?f]))
-    |> Map.update!(?d, &(&1 -- mapping[?b]))
-    |> Map.update!(?d, &(&1 -- mapping[?e]))
-    |> Map.update!(?e, &(&1 -- mapping[?g]))
+    |> Map.update!("a", &(&1 -- mapping["e"]))
+    |> Map.update!("b", &(&1 -- mapping["g"]))
+    |> Map.update!("c", &(&1 -- mapping["f"]))
+    |> Map.update!("d", &(&1 -- mapping["b"]))
+    |> Map.update!("d", &(&1 -- mapping["e"]))
+    |> Map.update!("e", &(&1 -- mapping["g"]))
   end
 
   defp find_b([], possibles), do: possibles
 
   defp find_b([<<value::binary-size(6)>> | rest], possibles) do
-    find_b(rest, MapSet.intersection(MapSet.new(to_charlist(value)), possibles))
+    find_b(rest, MapSet.intersection(MapSet.new(chars(value)), possibles))
   end
 
   defp find_b([_ | rest], possibles), do: find_b(rest, possibles)
@@ -133,7 +131,7 @@ defmodule Entry do
   defp find_g([], possibles), do: possibles
 
   defp find_g([<<value::binary-size(5)>> | rest], possibles) do
-    find_g(rest, MapSet.intersection(MapSet.new(to_charlist(value)), possibles))
+    find_g(rest, MapSet.intersection(MapSet.new(chars(value)), possibles))
   end
 
   defp find_g([_ | rest], possibles), do: find_g(rest, possibles)
@@ -159,8 +157,7 @@ end
 
 ```elixir
 initial_mapping =
-  ?a..?g
-  |> Enum.to_list()
+  ~W[a b c d e f g]
   |> then(fn list ->
     list
     |> Enum.zip(Stream.repeatedly(fn -> list end))
@@ -175,8 +172,6 @@ real_input
 |> Enum.map(fn [signals, outputs] ->
   Entry.decode(signals, initial_mapping)
   |> Entry.correct(outputs)
-  |> Enum.join()
-  |> String.to_integer()
 end)
 |> Enum.sum()
 ```
