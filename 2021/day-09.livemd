@@ -1,0 +1,130 @@
+# Day 09
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Part 1
+
+```elixir
+defmodule Grid do
+  def basins(grid) do
+    basins(grid, {0, 0}, [])
+  end
+
+  defp basins(grid, {i, j}, basins) do
+    case Map.fetch(grid, {i, j}) do
+      :error when i == 0 ->
+        basins
+
+      :error ->
+        basins(grid, {0, j + 1}, basins)
+
+      {:ok, 9} ->
+        basins(grid, {i + 1, j}, basins)
+
+      {:ok, _} ->
+        case Enum.any?(basins, &MapSet.member?(&1, {i, j})) do
+          true ->
+            basins(grid, {i + 1, j}, basins)
+
+          false ->
+            expanded =
+              expand_basin(
+                grid,
+                [{i - 1, j}, {i + 1, j}, {i, j - 1}, {i, j + 1}],
+                MapSet.new([{i, j}])
+              )
+
+            basins(
+              grid,
+              {i + 1, j},
+              [expanded | basins]
+            )
+        end
+    end
+  end
+
+  defp expand_basin(_, [], set), do: set
+
+  defp expand_basin(grid, [{i, j} | rest], set) do
+    case Map.fetch(grid, {i, j}) do
+      :error ->
+        expand_basin(grid, rest, set)
+
+      {:ok, 9} ->
+        expand_basin(grid, rest, set)
+
+      {:ok, _} ->
+        case MapSet.member?(set, {i, j}) do
+          true ->
+            expand_basin(grid, rest, set)
+
+          _ ->
+            expand_basin(
+              grid,
+              [{i - 1, j}, {i + 1, j}, {i, j - 1}, {i, j + 1} | rest],
+              MapSet.put(set, {i, j})
+            )
+        end
+    end
+  end
+
+  def low_points(grid) do
+    Enum.reduce(grid, [], fn {{i, j}, v}, acc ->
+      [{i + 1, j}, {i - 1, j}, {i, j + 1}, {i, j - 1}]
+      |> then(&Map.take(grid, &1))
+      |> Map.values()
+      |> Enum.all?(&(&1 > v))
+      |> then(&if &1, do: [v | acc], else: acc)
+    end)
+  end
+
+  def parse(input) do
+    input
+    |> String.split()
+    |> Enum.with_index(fn line, j ->
+      String.split(line, "", trim: true)
+      |> Enum.with_index(fn node, i ->
+        {{i, j}, String.to_integer(node)}
+      end)
+    end)
+    |> List.flatten()
+    |> Map.new()
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> Kino.Input.read()
+|> Grid.parse()
+|> Grid.low_points()
+|> Enum.map(&Kernel.+(&1, 1))
+|> Enum.sum()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> Kino.Input.read()
+|> Grid.parse()
+|> Grid.basins()
+|> Enum.map(&MapSet.size(&1))
+|> Enum.sort(:desc)
+|> Enum.take(3)
+|> Enum.product()
+```
