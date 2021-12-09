@@ -16,77 +16,41 @@ real_input = Kino.Input.textarea("real input:")
 
 ```elixir
 defmodule Grid do
-  def basins(grid) do
-    basins(grid, {0, 0}, [])
-  end
+  def basins(_, [], basins), do: basins
 
-  defp basins(grid, {i, j}, basins) do
-    case Map.fetch(grid, {i, j}) do
-      :error when i == 0 ->
-        basins
-
-      :error ->
-        basins(grid, {0, j + 1}, basins)
-
-      {:ok, 9} ->
-        basins(grid, {i + 1, j}, basins)
-
-      {:ok, _} ->
-        case Enum.any?(basins, &MapSet.member?(&1, {i, j})) do
-          true ->
-            basins(grid, {i + 1, j}, basins)
-
-          false ->
-            expanded =
-              expand_basin(
-                grid,
-                [{i - 1, j}, {i + 1, j}, {i, j - 1}, {i, j + 1}],
-                MapSet.new([{i, j}])
-              )
-
-            basins(
-              grid,
-              {i + 1, j},
-              [expanded | basins]
-            )
-        end
-    end
+  def basins(grid, [{coord, _} | low_points], basins) do
+    basins(grid, low_points, [expand_basin(grid, neighbors(coord), MapSet.new([coord])) | basins])
   end
 
   defp expand_basin(_, [], set), do: set
 
-  defp expand_basin(grid, [{i, j} | rest], set) do
-    case Map.fetch(grid, {i, j}) do
-      :error ->
+  defp expand_basin(grid, [coord | rest], set) do
+    case Map.get(grid, coord, 9) do
+      9 ->
         expand_basin(grid, rest, set)
 
-      {:ok, 9} ->
-        expand_basin(grid, rest, set)
-
-      {:ok, _} ->
-        case MapSet.member?(set, {i, j}) do
+      _ ->
+        case MapSet.member?(set, coord) do
           true ->
             expand_basin(grid, rest, set)
 
           _ ->
-            expand_basin(
-              grid,
-              [{i - 1, j}, {i + 1, j}, {i, j - 1}, {i, j + 1} | rest],
-              MapSet.put(set, {i, j})
-            )
+            expand_basin(grid, neighbors(coord) ++ rest, MapSet.put(set, coord))
         end
     end
   end
 
   def low_points(grid) do
-    Enum.reduce(grid, [], fn {{i, j}, v}, acc ->
-      [{i + 1, j}, {i - 1, j}, {i, j + 1}, {i, j - 1}]
+    Enum.reduce(grid, [], fn {coord, v} = point, acc ->
+      neighbors(coord)
       |> then(&Map.take(grid, &1))
       |> Map.values()
       |> Enum.all?(&(&1 > v))
-      |> then(&if &1, do: [v | acc], else: acc)
+      |> then(&if &1, do: [point | acc], else: acc)
     end)
   end
+
+  defp neighbors({i, j}), do: [{i - 1, j}, {i + 1, j}, {i, j - 1}, {i, j + 1}]
 
   def parse(input) do
     input
@@ -110,7 +74,7 @@ real_input
 |> Kino.Input.read()
 |> Grid.parse()
 |> Grid.low_points()
-|> Enum.map(&Kernel.+(&1, 1))
+|> Enum.map(&Kernel.+(elem(&1, 1), 1))
 |> Enum.sum()
 ```
 
@@ -122,7 +86,7 @@ real_input
 real_input
 |> Kino.Input.read()
 |> Grid.parse()
-|> Grid.basins()
+|> then(&Grid.basins(&1, Grid.low_points(&1), []))
 |> Enum.map(&MapSet.size(&1))
 |> Enum.sort(:desc)
 |> Enum.take(3)
