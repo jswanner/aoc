@@ -1,0 +1,138 @@
+# Day 10
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Shared
+
+```elixir
+defmodule SyntaxChecker do
+  @openings ~w|( [ { <|
+  @closings ~w|) ] } >|
+  @chunks Enum.zip(@openings, @closings) |> Map.new()
+
+  @incomplete_scores %{
+    ")" => 1,
+    "]" => 2,
+    "}" => 3,
+    ">" => 4
+  }
+
+  def compute_incomplete_score(tokens, tally \\ 0)
+  def compute_incomplete_score([], tally), do: tally
+
+  def compute_incomplete_score([token | rest], tally) do
+    compute_incomplete_score(rest, tally * 5 + Map.fetch!(@incomplete_scores, token))
+  end
+
+  def find_corrupt(lines) do
+    lines
+    |> Enum.map(&check_line/1)
+    |> Enum.filter(&match?({:corrupt, _}, &1))
+    |> Enum.map(&elem(&1, 1))
+  end
+
+  def find_incomplete(lines) do
+    lines
+    |> Enum.map(&check_line/1)
+    |> Enum.filter(&match?({:incomplete, _}, &1))
+    |> Enum.map(&elem(&1, 1))
+  end
+
+  def check_line(line) do
+    String.split(line, "", trim: true)
+    |> check_line([])
+  end
+
+  defp check_line([], []), do: :ok
+  defp check_line([], expectations), do: {:incomplete, expectations}
+
+  defp check_line([token | rest], expectations) when token in @openings do
+    check_line(rest, [Map.fetch!(@chunks, token) | expectations])
+  end
+
+  defp check_line([token | rest], [token | expectations]) when token in @closings do
+    check_line(rest, expectations)
+  end
+
+  defp check_line([token | _], _) when token in @closings, do: {:corrupt, token}
+end
+
+ExUnit.start(autorun: false)
+
+defmodule SyntaxCheckerTest do
+  use ExUnit.Case, async: true
+
+  test "finds corrupt chunk closings" do
+    assert {:corrupt, "}"} = SyntaxChecker.check_line("{([(<{}[<>[]}>{[]{[(<()>")
+    assert {:corrupt, ")"} = SyntaxChecker.check_line("[[<[([]))<([[{}[[()]]]")
+    assert {:corrupt, "]"} = SyntaxChecker.check_line("[{[{({}]{}}([{[{{{}}([]")
+    assert {:corrupt, ")"} = SyntaxChecker.check_line("[<(<(<(<{}))><([]([]()")
+    assert {:corrupt, ">"} = SyntaxChecker.check_line("<{([([[(<>()){}]>(<<{{")
+  end
+
+  test "marks line as incomplete" do
+    assert {:incomplete, ~w|} } ] ] ) } ) ]|} =
+             SyntaxChecker.check_line("[({(<(())[]>[[{[]{<()<>>")
+  end
+
+  test "okays valid line" do
+    assert :ok = SyntaxChecker.check_line("[](){}")
+  end
+
+  test "finds corrupt lines" do
+    assert ["}"] = SyntaxChecker.find_corrupt(["{([(<{}[<>[]}>{[]{[(<()>", "[](){}"])
+  end
+
+  test "finds incomplete lines" do
+    assert [~w|} } ] ] ) } ) ]|] = SyntaxChecker.find_incomplete(["[({(<(())[]>[[{[]{<()<>>"])
+  end
+
+  test "computes score for incompletes" do
+    assert 288_957 = SyntaxChecker.compute_incomplete_score(~w|} } ] ] ) } ) ]|)
+  end
+end
+
+ExUnit.run()
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+scores = %{
+  ")" => 3,
+  "]" => 57,
+  "}" => 1197,
+  ">" => 25137
+}
+
+real_input
+|> Kino.Input.read()
+|> String.split("\n")
+|> SyntaxChecker.find_corrupt()
+|> Enum.map(&Map.fetch!(scores, &1))
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+real_input
+|> Kino.Input.read()
+|> String.split("\n")
+|> SyntaxChecker.find_incomplete()
+|> Enum.map(&SyntaxChecker.compute_incomplete_score/1)
+|> Enum.sort()
+|> then(&Enum.at(&1, div(length(&1), 2)))
+```
