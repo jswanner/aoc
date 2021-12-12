@@ -1,0 +1,90 @@
+# Day 11
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+```elixir
+defmodule Grid do
+  def step(grid), do: increment(grid, Map.keys(grid), [], MapSet.new())
+
+  defp increment(grid, [], [], flashes), do: {grid, MapSet.size(flashes)}
+  defp increment(grid, [], affected, flashes), do: increment(grid, affected, [], flashes)
+
+  defp increment(grid, [c | rest], affected, flashes) do
+    energy = grid[c]
+
+    cond do
+      energy == nil or MapSet.member?(flashes, c) ->
+        increment(grid, rest, affected, flashes)
+
+      energy == 9 ->
+        increment(Map.put(grid, c, 0), rest, neighbors(c) ++ affected, MapSet.put(flashes, c))
+
+      true ->
+        increment(Map.put(grid, c, energy + 1), rest, affected, flashes)
+    end
+  end
+
+  defp neighbors({r, c}),
+    do: [
+      {r - 1, c - 1},
+      {r - 1, c},
+      {r - 1, c + 1},
+      {r, c + 1},
+      {r + 1, c + 1},
+      {r + 1, c},
+      {r + 1, c - 1},
+      {r, c - 1}
+    ]
+end
+```
+
+```elixir
+lines =
+  real_input
+  |> Kino.Input.read()
+  |> String.split("\n")
+
+grid =
+  for {line, row} <- Enum.with_index(lines),
+      {energy, col} <- Enum.with_index(String.to_charlist(line)),
+      into: %{} do
+    {{row, col}, energy - ?0}
+  end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{_grid, count} =
+  Enum.reduce(1..100, {grid, 0}, fn _, {grid, sum} ->
+    {grid, count} = Grid.step(grid)
+    {grid, sum + count}
+  end)
+
+count
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Enum.reduce_while(1..400, grid, fn step, grid ->
+  {grid, count} = Grid.step(grid)
+  if count == 100, do: {:halt, step}, else: {:cont, grid}
+end)
+```
