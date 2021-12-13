@@ -1,0 +1,120 @@
+# Day 12
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Part 1
+
+```elixir
+defmodule Graph do
+  def new(input) do
+    input
+    |> Enum.flat_map(fn [from, to] ->
+      [
+        {from, %{neighbors: [to] -- ["start"], revisitable?: revisitable?(from)}},
+        {to, %{neighbors: [from] -- ["start"], revisitable?: revisitable?(to)}}
+      ]
+    end)
+    |> Enum.reduce(%{}, fn {from, map}, graph ->
+      Map.update(graph, from, map, fn node ->
+        %{node | neighbors: node.neighbors ++ map.neighbors}
+      end)
+    end)
+  end
+
+  def paths(_graph, ["end" | _] = paths, _seen), do: [Enum.reverse(paths)]
+
+  def paths(graph, [key | _] = paths, seen) do
+    node = graph[key]
+    seen = if node.revisitable?, do: seen, else: MapSet.put(seen, key)
+    next = for neighbor <- node.neighbors, neighbor not in seen, do: neighbor
+
+    Enum.flat_map(next, fn neighbor ->
+      paths(graph, [neighbor | paths], seen)
+    end)
+  end
+
+  defp revisitable?(<<c, _::binary>>) when c in ?A..?Z, do: true
+  defp revisitable?(_), do: false
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> Kino.Input.read()
+|> String.split(["\n", "-"])
+|> Enum.chunk_every(2)
+|> Graph.new()
+|> Graph.paths(["start"], MapSet.new())
+|> Enum.count()
+```
+
+## Part 2
+
+```elixir
+defmodule Graph2 do
+  def new(input) do
+    input
+    |> Enum.flat_map(fn [from, to] ->
+      [
+        {from, %{neighbors: [to] -- ["start"], revisitable?: revisitable?(from)}},
+        {to, %{neighbors: [from] -- ["start"], revisitable?: revisitable?(to)}}
+      ]
+    end)
+    |> Enum.reduce(%{}, fn {from, map}, graph ->
+      Map.update(graph, from, map, fn node ->
+        %{node | neighbors: node.neighbors ++ map.neighbors}
+      end)
+    end)
+  end
+
+  def paths(_graph, ["end" | _] = paths, _seen, _twice), do: [Enum.reverse(paths)]
+
+  def paths(graph, [key | _] = paths, seen, twice) do
+    node = graph[key]
+
+    next =
+      for neighbor <- node.neighbors,
+          visitable?(node.revisitable?, key in seen, is_nil(twice)),
+          do: neighbor
+
+    twice = if !node.revisitable? and key in seen and is_nil(twice), do: key, else: twice
+    seen = if node.revisitable?, do: seen, else: MapSet.put(seen, key)
+
+    Enum.flat_map(next, fn neighbor ->
+      paths(graph, [neighbor | paths], seen, twice)
+    end)
+  end
+
+  defp revisitable?(<<c, _::binary>>) when c in ?A..?Z, do: true
+  defp revisitable?(_), do: false
+
+  defp visitable?(false, true, false), do: false
+  defp visitable?(_, _, _), do: true
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> Kino.Input.read()
+|> String.split(["\n", "-"])
+|> Enum.chunk_every(2)
+|> Graph2.new()
+|> Graph2.paths(["start"], MapSet.new(), nil)
+|> Enum.count()
+```
