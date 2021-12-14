@@ -1,0 +1,121 @@
+# Day 13
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+```elixir
+defmodule Transparency do
+  def fold(grid, {max_x, max_y}, {"x", line}) do
+    grid =
+      for x <- (line + 1)..max_x, y <- 0..max_y, value = grid[{x, y}], reduce: grid do
+        grid ->
+          Map.delete(grid, {x, y}) |> Map.put({x - (x - line) * 2, y}, value)
+      end
+
+    {grid, {div(max_x, 2), max_y}}
+  end
+
+  def fold(grid, {max_x, max_y}, {"y", line}) do
+    grid =
+      for x <- 0..max_x, y <- (line + 1)..max_y, value = grid[{x, y}], reduce: grid do
+        grid ->
+          Map.delete(grid, {x, y}) |> Map.put({x, y - (y - line) * 2}, value)
+      end
+
+    {grid, {max_x, div(max_y, 2)}}
+  end
+
+  def parse(input) do
+    {
+      parse_grid(input, %{}),
+      parse_instructions(input, [])
+    }
+  end
+
+  def parse_grid(input), do: parse_grid(input, %{})
+  def parse_grid([], grid), do: grid
+  def parse_grid(["fold " <> _ | rest], grid), do: parse_grid(rest, grid)
+
+  def parse_grid([coord | rest], grid) do
+    [col, row] =
+      coord
+      |> String.split(",")
+      |> Enum.map(&String.to_integer/1)
+
+    parse_grid(rest, Map.put(grid, {col, row}, true))
+  end
+
+  def parse_instructions(input), do: parse_instructions(input, [])
+  def parse_instructions([], instructions), do: Enum.reverse(instructions)
+
+  def parse_instructions(["fold along " <> instruction | rest], instructions) do
+    [axis, value] = String.split(instruction, "=")
+    parse_instructions(rest, [{axis, String.to_integer(value)} | instructions])
+  end
+
+  def parse_instructions([_ | rest], instructions), do: parse_instructions(rest, instructions)
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{grid, instructions} =
+  real_input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+  |> Transparency.parse()
+
+max_x =
+  Map.keys(grid)
+  |> Enum.map(&elem(&1, 0))
+  |> Enum.max()
+
+max_y =
+  Map.keys(grid)
+  |> Enum.map(&elem(&1, 1))
+  |> Enum.max()
+```
+
+## Part 1
+
+```elixir
+{grid, {max_x, max_y}} =
+  instructions
+  |> Enum.take(1)
+  |> Enum.reduce({grid, {max_x, max_y}}, fn instruction, {grid, {max_x, max_y}} ->
+    Transparency.fold(grid, {max_x, max_y}, instruction)
+  end)
+
+grid
+|> Map.keys()
+|> Enum.count()
+```
+
+## Part 2
+
+```elixir
+{grid, {max_x, max_y}} =
+  instructions
+  |> Enum.reduce({grid, {max_x, max_y}}, fn instruction, {grid, {max_x, max_y}} ->
+    Transparency.fold(grid, {max_x, max_y}, instruction)
+  end)
+
+for y <- 0..max_y, into: [] do
+  for x <- 0..max_x, reduce: "" do
+    acc -> acc <> if grid[{x, y}], do: ".", else: " "
+  end <> "\n"
+end
+|> IO.puts()
+```
