@@ -1,0 +1,108 @@
+# Day 14
+
+## Setup
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.4.1"}
+])
+```
+
+```elixir
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+```elixir
+[template | rules] =
+  real_input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+
+rules =
+  rules
+  |> Enum.map(&String.split(&1, " -> "))
+  |> Map.new(fn [k, v] -> {k, v} end)
+```
+
+## Part 1
+
+```elixir
+defmodule Polymer do
+  def inject(template, rules) do
+    pairs =
+      template
+      |> String.split("", trim: true)
+      |> Enum.chunk_every(2, 1)
+
+    inject(pairs, rules, [])
+  end
+
+  defp inject([], _, acc), do: acc |> Enum.reverse() |> Enum.join()
+  defp inject([[tail] | rest], rules, acc), do: inject(rest, rules, [tail | acc])
+  defp inject([[p1, p2] | rest], rules, acc), do: inject(rest, rules, [rules[p1 <> p2], p1 | acc])
+end
+```
+
+```elixir
+result =
+  1..10
+  |> Enum.reduce(template, fn _, acc ->
+    Polymer.inject(acc, rules)
+  end)
+
+frequencies =
+  result
+  |> String.split("", trim: true)
+  |> Enum.frequencies()
+
+{{_, min}, {_, max}} =
+  frequencies
+  |> Enum.min_max_by(fn {_, v} -> v end)
+
+max - min
+```
+
+## Part 2
+
+```elixir
+template =
+  template
+  |> String.split("", trim: true)
+  |> Enum.chunk_every(2, 1, ["-"])
+  |> Enum.frequencies()
+
+polymer =
+  Enum.reduce(1..40, template, fn _, polymer ->
+    polymer =
+      Enum.reduce(polymer, %{}, fn
+        {[p1, p2] = polymer, count}, acc ->
+          case rules[p1 <> p2] do
+            nil ->
+              Map.put(acc, polymer, count)
+
+            i ->
+              acc
+              |> Map.update([p1, i], count, &(&1 + count))
+              |> Map.update([i, p2], count, &(&1 + count))
+          end
+      end)
+
+    polymer
+  end)
+
+frequencies =
+  polymer
+  |> Enum.reduce(%{}, fn {[p1, _], count}, counts ->
+    Map.update(counts, p1, count, &(&1 + count))
+  end)
+
+{{_, min}, {_, max}} =
+  frequencies
+  |> Enum.min_max_by(fn {_, v} -> v end)
+
+max - min
+```
