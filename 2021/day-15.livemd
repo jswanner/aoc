@@ -1,0 +1,108 @@
+# Day 15
+
+## Setup
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.4.1"},
+  {:pqueue2, "~> 0.4.1"}
+])
+```
+
+```elixir
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+```elixir
+defmodule Graph do
+  @offsets [{-1, 0}, {1, 0}, {0, -1}, {0, 1}]
+
+  def expand(graph) do
+    graph_size = Enum.max(graph) |> elem(0) |> elem(0) |> Kernel.+(1)
+
+    graph
+    |> Enum.flat_map(fn {{r, c}, risk} ->
+      0..4
+      |> Enum.map(fn offset ->
+        risk = if (risk = risk + offset) > 9, do: risk - 9, else: risk
+        {{r + offset * graph_size, c}, risk}
+      end)
+    end)
+    |> Enum.flat_map(fn {{r, c}, risk} ->
+      0..4
+      |> Enum.map(fn offset ->
+        risk = if (risk = risk + offset) > 9, do: risk - 9, else: risk
+        {{r, c + offset * graph_size}, risk}
+      end)
+    end)
+    |> Map.new()
+  end
+
+  def path_score(graph) do
+    {{start, _}, {finish, _}} = Enum.min_max(graph)
+    queue = PQueue2.new() |> PQueue2.put(start, 0)
+
+    Stream.iterate(
+      {queue, %{start => graph[start]}},
+      fn {queue, seen} ->
+        case PQueue2.pop_with_priority(queue) do
+          {{^finish, score}, _} ->
+            score
+
+          {{{r, c}, score}, queue} ->
+            neighbors =
+              @offsets
+              |> Enum.map(fn {rd, cd} -> {r + rd, c + cd} end)
+              |> Enum.filter(fn coord -> is_map_key(graph, coord) end)
+              |> Enum.filter(fn coord -> not is_map_key(seen, coord) end)
+              |> Enum.map(fn coord -> {coord, score + graph[coord]} end)
+
+            queue =
+              neighbors
+              |> Enum.reduce(queue, fn {coord, score}, queue ->
+                PQueue2.put(queue, coord, score)
+              end)
+
+            seen = Map.merge(seen, Map.new(neighbors))
+
+            {queue, seen}
+        end
+      end
+    )
+    |> Enum.find(&is_integer/1)
+  end
+end
+```
+
+```elixir
+lines =
+  real_input
+  |> Kino.Input.read()
+  |> String.split("\n")
+
+graph =
+  for {line, row} <- Enum.with_index(lines),
+      {risk, col} <- Enum.with_index(String.to_charlist(line)),
+      into: %{} do
+    {{row, col}, risk - ?0}
+  end
+```
+
+## Part 1
+
+```elixir
+Graph.path_score(graph)
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Graph.expand(graph)
+|> Graph.path_score()
+```
