@@ -1,0 +1,147 @@
+<!-- vim: syntax=markdown -->
+
+# Day 16 - bitstring
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+input = Kino.Input.text("input:")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule BITS do
+  defp bitstring_to_string(bitstring) do
+    bitstring
+    |> String.to_charlist()
+    |> Enum.map(fn i -> i |> Integer.to_string(2) |> String.pad_leading(4, "0") end)
+    |> Enum.join()
+  end
+
+  def decode(bitstring), do: decode([], bitstring)
+
+  defp decode(packets, rest) when bit_size(rest) > 7 do
+    {packet, rest} = decode_one(rest)
+
+    decode([packet | packets], rest)
+  end
+
+  defp decode(packets, _rest), do: Enum.reverse(packets)
+
+  defp decode_one(<<version::3, 4::3, rest::bits>>) do
+    decode_literal(version, 4, rest)
+  end
+
+  defp decode_one(<<version::3, type::3, length_type::1, rest::bits>>) do
+    decode_operator(
+      version,
+      type,
+      length_type,
+      rest
+    )
+  end
+
+  defp decode_literal(version, type, rest) do
+    {chunks, rest} = decode_literal_chunks(<<>>, rest)
+
+    literal =
+      chunks
+      |> bitstring_to_string()
+      |> String.to_integer(2)
+
+    {{:literal, version, type, literal}, rest}
+  end
+
+  defp decode_literal_chunks(chunks, <<0::1, chunk::4, rest::bits>>),
+    do: {<<chunks::bits, chunk>>, rest}
+
+  defp decode_literal_chunks(chunks, <<1::1, chunk::4, rest::bits>>),
+    do: decode_literal_chunks(<<chunks::bits, chunk>>, rest)
+
+  defp decode_literal_chunks(chunks, rest), do: {chunks, rest}
+
+  defp decode_operator(version, type, 0, <<length::15, sliced::size(length), rest::bits>>) do
+    {{:operator, version, type, decode(<<sliced::size(length)>>)}, rest}
+  end
+
+  defp decode_operator(version, type, 1, <<count::11, rest::bits>>) do
+    {subs, rest} =
+      1..count
+      |> Enum.reduce({[], rest}, fn _, {subs, rest} ->
+        {sub, rest} = decode_one(rest)
+        {[sub | subs], rest}
+      end)
+
+    {{:operator, version, type, Enum.reverse(subs)}, rest}
+  end
+
+  def new(input) do
+    input
+    |> Base.decode16!()
+  end
+
+  def eval(packets), do: eval(packets, [])
+
+  defp eval([], acc), do: acc
+  defp eval([{:literal, _, _, value} | packets], acc), do: eval(packets, [value | acc])
+
+  defp eval([{:operator, _, 0, subs} | packets], acc),
+    do: eval(packets, [eval(subs) |> Enum.sum() | acc])
+
+  defp eval([{:operator, _, 1, subs} | packets], acc),
+    do: eval(packets, [eval(subs) |> Enum.product() | acc])
+
+  defp eval([{:operator, _, 2, subs} | packets], acc),
+    do: eval(packets, [eval(subs) |> Enum.min() | acc])
+
+  defp eval([{:operator, _, 3, subs} | packets], acc),
+    do: eval(packets, [eval(subs) |> Enum.max() | acc])
+
+  defp eval([{:operator, _, 5, [s1, s2]} | packets], acc),
+    do: eval(packets, [if(eval([s1]) > eval([s2]), do: 1, else: 0) | acc])
+
+  defp eval([{:operator, _, 6, [s1, s2]} | packets], acc),
+    do: eval(packets, [if(eval([s1]) < eval([s2]), do: 1, else: 0) | acc])
+
+  defp eval([{:operator, _, 7, [s1, s2]} | packets], acc),
+    do: eval(packets, [if(eval([s1]) == eval([s2]), do: 1, else: 0) | acc])
+
+  def sum(packets) do
+    sum(packets, 0)
+  end
+
+  defp sum([{:literal, version, _, _} | rest], sum), do: sum(rest, sum + version)
+  defp sum([{:operator, version, _, subs} | rest], sum), do: sum(subs ++ rest, sum + version)
+  defp sum([], sum), do: sum
+end
+
+bits =
+  input
+  |> Kino.Input.read()
+  |> BITS.new()
+  |> BITS.decode()
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+bits
+|> BITS.sum()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+bits
+|> BITS.eval()
+|> hd()
+```
