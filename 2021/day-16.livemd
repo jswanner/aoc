@@ -1,0 +1,142 @@
+# Day 16
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+input = Kino.Input.text("input:")
+```
+
+```elixir
+defmodule BITS do
+  def decode(string), do: decode([], string)
+
+  defp decode(packets, rest) when byte_size(rest) > 7 do
+    {packet, rest} = decode_one(rest)
+
+    decode([packet | packets], rest)
+  end
+
+  defp decode(packets, _rest), do: Enum.reverse(packets)
+
+  defp decode_one(<<version::binary-size(3), "100", rest::binary>>) do
+    decode_literal(String.to_integer(version, 2), 4, rest)
+  end
+
+  defp decode_one(
+         <<version::binary-size(3), type::binary-size(3), length_type::binary-size(1),
+           rest::binary>>
+       ) do
+    decode_operator(
+      String.to_integer(version, 2),
+      String.to_integer(type, 2),
+      length_type,
+      rest
+    )
+  end
+
+  defp decode_literal(version, type, rest) do
+    {chunks, rest} = decode_literal_chunks(rest, [])
+
+    literal = for chunk <- chunks, into: "", do: chunk
+
+    {{:literal, version, type, String.to_integer(literal, 2)}, rest}
+  end
+
+  defp decode_literal_chunks(<<"0", chunk::binary-size(4), rest::binary>>, chunks),
+    do: {Enum.reverse([chunk | chunks]), rest}
+
+  defp decode_literal_chunks(<<"1", chunk::binary-size(4), rest::binary>>, chunks),
+    do: decode_literal_chunks(rest, [chunk | chunks])
+
+  defp decode_operator(version, type, "0", <<length::binary-size(15), rest::binary>>) do
+    length = String.to_integer(length, 2)
+    {sliced, rest} = String.split_at(rest, length)
+
+    {{:operator, version, type, decode(sliced)}, rest}
+  end
+
+  defp decode_operator(version, type, "1", <<count::binary-size(11), rest::binary>>) do
+    count = String.to_integer(count, 2)
+
+    {subs, rest} =
+      1..count
+      |> Enum.reduce({[], rest}, fn _, {subs, rest} ->
+        {sub, rest} = decode_one(rest)
+        {[sub | subs], rest}
+      end)
+
+    {{:operator, version, type, Enum.reverse(subs)}, rest}
+  end
+
+  def new(input) do
+    input
+    |> String.split("", trim: true)
+    |> Enum.map(fn c ->
+      c
+      |> String.to_integer(16)
+      |> Integer.to_string(2)
+      |> String.pad_leading(4, "0")
+    end)
+    |> Enum.join()
+  end
+
+  def eval(packets), do: eval(packets, [])
+
+  defp eval([], acc), do: acc
+  defp eval([{:literal, _, _, value} | packets], acc), do: eval(packets, [value | acc])
+
+  defp eval([{:operator, _, 0, subs} | packets], acc),
+    do: eval(packets, [eval(subs) |> Enum.sum() | acc])
+
+  defp eval([{:operator, _, 1, subs} | packets], acc),
+    do: eval(packets, [eval(subs) |> Enum.product() | acc])
+
+  defp eval([{:operator, _, 2, subs} | packets], acc),
+    do: eval(packets, [eval(subs) |> Enum.min() | acc])
+
+  defp eval([{:operator, _, 3, subs} | packets], acc),
+    do: eval(packets, [eval(subs) |> Enum.max() | acc])
+
+  defp eval([{:operator, _, 5, [s1, s2]} | packets], acc),
+    do: eval(packets, [if(eval([s1]) > eval([s2]), do: 1, else: 0) | acc])
+
+  defp eval([{:operator, _, 6, [s1, s2]} | packets], acc),
+    do: eval(packets, [if(eval([s1]) < eval([s2]), do: 1, else: 0) | acc])
+
+  defp eval([{:operator, _, 7, [s1, s2]} | packets], acc),
+    do: eval(packets, [if(eval([s1]) == eval([s2]), do: 1, else: 0) | acc])
+
+  def sum(packets) do
+    sum(packets, 0)
+  end
+
+  defp sum([{:literal, version, _, _} | rest], sum), do: sum(rest, sum + version)
+  defp sum([{:operator, version, _, subs} | rest], sum), do: sum(subs ++ rest, sum + version)
+  defp sum([], sum), do: sum
+end
+
+bits =
+  input
+  |> Kino.Input.read()
+  |> BITS.new()
+  |> BITS.decode()
+```
+
+## Part 1
+
+```elixir
+bits
+|> BITS.sum()
+```
+
+## Part 2
+
+```elixir
+bits
+|> BITS.eval()
+|> hd()
+```
