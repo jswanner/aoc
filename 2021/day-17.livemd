@@ -1,0 +1,69 @@
+<!-- vim: syntax=markdown -->
+
+# Day 17
+
+## Setup
+
+```elixir
+Mix.install([{:kino, "~> 0.4.1"}])
+```
+
+```elixir
+example_input =
+  Kino.Input.text("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.text("real input:")
+```
+
+```elixir
+[{x_range, _}, {y_range, _}] =
+  real_input
+  |> Kino.Input.read()
+  |> String.split(["target area: ", ", ", "x=", "y="], trim: true)
+  |> Enum.map(&Code.eval_string/1)
+
+x_min = Enum.min(x_range)
+vx_min = 1..x_min |> Enum.find(&(Enum.sum(1..&1) >= x_min))
+
+y_min = Enum.min(y_range)
+vy_max = -1 - y_min
+```
+
+## Part 1
+
+```elixir
+Stream.iterate({vx_min, vy_max}, fn {x, y} -> {Enum.max([x - 1, 0]), y - 1} end)
+|> Enum.reduce_while({0, {0, 0}}, fn {xd, yd}, {y_max, {x, y}} ->
+  {_, y} = coord = {x + xd, y + yd}
+  y_max = Enum.max([y_max, y])
+  if y <= Enum.min(y_range), do: {:halt, {y_max, coord}}, else: {:cont, {y_max, coord}}
+end)
+```
+
+## Part 2
+
+```elixir
+defmodule Launcher do
+  def hits_target?({vx, vy}, x_range, y_range) do
+    Stream.iterate({vx, vy}, fn {x, y} -> {Enum.max([x - 1, 0]), y - 1} end)
+    |> Enum.reduce_while({0, 0}, fn {xd, yd}, {x, y} ->
+      {x, y} = coord = {x + xd, y + yd}
+      in_target? = in_target?({x, y}, x_range, y_range)
+      if y <= Enum.min(y_range) or in_target?, do: {:halt, in_target?}, else: {:cont, coord}
+    end)
+  end
+
+  def in_target?({x, y}, x_range, y_range), do: x in x_range and y in y_range
+end
+```
+
+```elixir
+for vx <- vx_min..Enum.max(x_range),
+    vy <- y_min..vy_max,
+    Launcher.hits_target?({vx, vy}, x_range, y_range),
+    into: [] do
+  {vx, vy}
+end
+|> Enum.count()
+```
