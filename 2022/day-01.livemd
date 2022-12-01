@@ -12,39 +12,41 @@ example_input =
 real_input = Kino.Input.textarea("real input:")
 ```
 
+## Common
+
+```elixir
+parse = fn input ->
+  input
+  |> Kino.Input.read()
+  |> String.split("\n")
+  |> Enum.chunk_while(
+    [],
+    fn
+      "", acc -> {:cont, Enum.sum(acc), []}
+      value, acc -> {:cont, [String.to_integer(value) | acc]}
+    end,
+    &{:cont, Enum.sum(&1), &1}
+  )
+end
+```
+
 ## Part 1
 
 <!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
 real_input
-|> Kino.Input.read()
-|> String.split("\n")
-|> Enum.chunk_while(
-  [],
-  fn
-    "", acc -> {:cont, Enum.sum(acc), []}
-    value, acc -> {:cont, [String.to_integer(value) | acc]}
-  end,
-  &{:cont, Enum.sum(&1), &1}
-)
+|> parse.()
 |> Enum.max()
 ```
 
 ## Part 2
 
+<!-- livebook:{"reevaluate_automatically":true} -->
+
 ```elixir
 real_input
-|> Kino.Input.read()
-|> String.split("\n")
-|> Enum.chunk_while(
-  [],
-  fn
-    "", acc -> {:cont, Enum.sum(acc), []}
-    value, acc -> {:cont, [String.to_integer(value) | acc]}
-  end,
-  &{:cont, Enum.sum(&1), &1}
-)
+|> parse.()
 |> Enum.sort(:desc)
 |> Enum.take(3)
 |> Enum.sum()
