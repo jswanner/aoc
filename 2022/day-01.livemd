@@ -1,0 +1,51 @@
+# Day 01
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> Kino.Input.read()
+|> String.split("\n")
+|> Enum.chunk_while(
+  [],
+  fn
+    "", acc -> {:cont, Enum.sum(acc), []}
+    value, acc -> {:cont, [String.to_integer(value) | acc]}
+  end,
+  &{:cont, Enum.sum(&1), &1}
+)
+|> Enum.max()
+```
+
+## Part 2
+
+```elixir
+real_input
+|> Kino.Input.read()
+|> String.split("\n")
+|> Enum.chunk_while(
+  [],
+  fn
+    "", acc -> {:cont, Enum.sum(acc), []}
+    value, acc -> {:cont, [String.to_integer(value) | acc]}
+  end,
+  &{:cont, Enum.sum(&1), &1}
+)
+|> Enum.sort(:desc)
+|> Enum.take(3)
+|> Enum.sum()
+```
