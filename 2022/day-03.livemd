@@ -24,10 +24,7 @@ parse = fn input ->
   input
   |> Kino.Input.read()
   |> String.split("\n")
-  |> Enum.map(fn rucksack ->
-    rucksack
-    |> String.to_charlist()
-  end)
+  |> Enum.map(&to_charlist/1)
 end
 ```
 
