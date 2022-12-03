@@ -1,0 +1,71 @@
+# Day 03
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+```elixir
+priorities =
+  Enum.concat(?a..?z, ?A..?Z)
+  |> Enum.zip(1..52)
+  |> Enum.into(%{})
+
+parse = fn input ->
+  input
+  |> Kino.Input.read()
+  |> String.split("\n")
+  |> Enum.map(fn rucksack ->
+    rucksack
+    |> String.to_charlist()
+  end)
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> then(parse)
+|> Enum.map(fn rucksack ->
+  rucksack
+  |> Enum.split(div(length(rucksack), 2))
+  |> Tuple.to_list()
+  |> Enum.map(&MapSet.new/1)
+  |> Enum.reduce(&MapSet.intersection(&1, &2))
+  |> MapSet.to_list()
+  |> List.first()
+  |> then(&priorities[&1])
+end)
+|> Enum.sum()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> then(parse)
+|> Enum.chunk_every(3)
+|> Enum.map(fn list ->
+  list
+  |> Enum.map(&MapSet.new/1)
+  |> Enum.reduce(&MapSet.intersection(&1, &2))
+  |> MapSet.to_list()
+  |> List.first()
+  |> then(&priorities[&1])
+end)
+|> Enum.sum()
+```
