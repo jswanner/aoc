@@ -45,9 +45,7 @@ real_input
 <!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
-find_overlaps = fn {a, b} ->
-  a.first in b or a.last in b or b.first in a or b.last in a
-end
+find_overlaps = fn {a, b} -> not Range.disjoint?(a, b) end
 
 real_input
 |> then(parse)
