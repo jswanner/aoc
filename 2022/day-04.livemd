@@ -30,13 +30,13 @@ end
 <!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
-find_contained = fn {a, b} ->
+contained? = fn {a, b} ->
   (a.first in b and a.last in b) or (b.first in a and b.last in a)
 end
 
 real_input
 |> then(parse)
-|> Enum.filter(find_contained)
+|> Enum.filter(contained?)
 |> length()
 ```
 
@@ -45,10 +45,10 @@ real_input
 <!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
-find_overlaps = fn {a, b} -> not Range.disjoint?(a, b) end
+overlaps? = fn {a, b} -> not Range.disjoint?(a, b) end
 
 real_input
 |> then(parse)
-|> Enum.filter(find_overlaps)
+|> Enum.filter(overlaps?)
 |> length()
 ```
