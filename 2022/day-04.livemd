@@ -1,0 +1,56 @@
+# Day 04
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+```elixir
+parse = fn input ->
+  input
+  |> Kino.Input.read()
+  |> String.split(~r/-|,|\n/)
+  |> Enum.map(&String.to_integer/1)
+  |> Enum.chunk_every(4)
+  |> Enum.map(fn [a, b, c, d] -> {Range.new(a, b), Range.new(c, d)} end)
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+find_contained = fn {a, b} ->
+  (a.first in b and a.last in b) or (b.first in a and b.last in a)
+end
+
+real_input
+|> then(parse)
+|> Enum.filter(find_contained)
+|> length()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+find_overlaps = fn {a, b} ->
+  a.first in b or a.last in b or b.first in a or b.last in a
+end
+
+real_input
+|> then(parse)
+|> Enum.filter(find_overlaps)
+|> length()
+```
