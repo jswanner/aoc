@@ -18,7 +18,7 @@ real_input = Kino.Input.textarea("real input:")
 parse = fn input ->
   input
   |> Kino.Input.read()
-  |> String.split(~r/-|,|\n/)
+  |> String.split(["-", ",", "\n"])
   |> Enum.map(&String.to_integer/1)
   |> Enum.chunk_every(4)
   |> Enum.map(fn [a, b, c, d] -> {Range.new(a, b), Range.new(c, d)} end)
