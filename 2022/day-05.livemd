@@ -1,0 +1,124 @@
+# Day 05
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+```elixir
+parse = fn input ->
+  {stack_data, [stack_count | procedure_data]} =
+    input
+    |> Kino.Input.read()
+    |> String.split("\n", trim: true)
+    |> Enum.split_while(fn
+      <<" 1 ", _::binary>> -> false
+      _ -> true
+    end)
+
+  max_height = length(stack_data)
+
+  stack_count =
+    stack_count
+    |> String.split()
+    |> length()
+
+  grid =
+    stack_data
+    |> Enum.reverse()
+    |> Enum.with_index()
+    |> Enum.flat_map(fn {line, col} ->
+      line
+      |> String.split("", trim: true)
+      |> tl()
+      |> Enum.take_every(4)
+      |> Enum.with_index(fn value, row ->
+        value = if(value == " ", do: nil, else: value)
+        {{row, col}, value}
+      end)
+    end)
+    |> Map.new()
+
+  stacks =
+    0..(stack_count - 1)
+    |> Enum.reduce([], fn row, stacks ->
+      stack =
+        0..(max_height - 1)
+        |> Enum.map(&grid[{row, &1}])
+        |> Enum.filter(& &1)
+        |> Enum.reverse()
+
+      [stack | stacks]
+    end)
+    |> Enum.reverse()
+
+  procedures =
+    procedure_data
+    |> Enum.map(fn line ->
+      [_, count, _, from, _, to] = String.split(line)
+      [count, from, to] = [count, from, to] |> Enum.map(&String.to_integer/1)
+      %{count: count, from: from - 1, to: to - 1}
+    end)
+
+  {stacks, procedures}
+end
+
+read_heads = fn stacks ->
+  stacks
+  |> Enum.map(&hd/1)
+  |> Enum.join()
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+follow_procedures = fn {stacks, procedures} ->
+  procedures
+  |> Enum.reduce(stacks, fn procedure, stacks ->
+    1..procedure.count
+    |> Enum.reduce(stacks, fn _, stacks ->
+      {item, stacks} = get_and_update_in(stacks, [Access.at(procedure.from)], &Enum.split(&1, 1))
+
+      update_in(stacks, [Access.at(procedure.to)], &[item | &1])
+    end)
+  end)
+end
+
+real_input
+|> then(parse)
+|> then(follow_procedures)
+|> then(read_heads)
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+follow_procedures = fn {stacks, procedures} ->
+  procedures
+  |> Enum.reduce(stacks, fn procedure, stacks ->
+    {items, stacks} =
+      get_and_update_in(stacks, [Access.at(procedure.from)], &Enum.split(&1, procedure.count))
+
+    update_in(stacks, [Access.at(procedure.to)], &Enum.concat(items, &1))
+  end)
+end
+
+real_input
+|> then(parse)
+|> then(follow_procedures)
+|> then(read_heads)
+```
