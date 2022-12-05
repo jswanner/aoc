@@ -16,7 +16,7 @@ real_input = Kino.Input.textarea("real input:")
 
 ```elixir
 parse = fn input ->
-  {stack_data, [stack_count | procedure_data]} =
+  {stack_data, [_ | procedure_data]} =
     input
     |> Kino.Input.read()
     |> String.split("\n", trim: true)
@@ -25,41 +25,23 @@ parse = fn input ->
       _ -> true
     end)
 
-  max_height = length(stack_data)
-
-  stack_count =
-    stack_count
-    |> String.split()
-    |> length()
-
-  grid =
+  stacks =
     stack_data
-    |> Enum.reverse()
-    |> Enum.with_index()
-    |> Enum.flat_map(fn {line, col} ->
+    |> Enum.map(fn line ->
       line
       |> String.split("", trim: true)
       |> tl()
       |> Enum.take_every(4)
-      |> Enum.with_index(fn value, row ->
-        value = if(value == " ", do: nil, else: value)
-        {{row, col}, value}
+    end)
+    |> Enum.zip_with(& &1)
+    |> Enum.map(fn stack ->
+      stack
+      |> Enum.reverse()
+      |> Enum.reduce([], fn
+        " ", acc -> acc
+        value, acc -> [value | acc]
       end)
     end)
-    |> Map.new()
-
-  stacks =
-    0..(stack_count - 1)
-    |> Enum.reduce([], fn row, stacks ->
-      stack =
-        0..(max_height - 1)
-        |> Enum.map(&grid[{row, &1}])
-        |> Enum.filter(& &1)
-        |> Enum.reverse()
-
-      [stack | stacks]
-    end)
-    |> Enum.reverse()
 
   procedures =
     procedure_data
