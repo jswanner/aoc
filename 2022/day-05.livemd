@@ -16,17 +16,15 @@ real_input = Kino.Input.textarea("real input:")
 
 ```elixir
 parse = fn input ->
-  {stack_data, [_ | procedure_data]} =
+  [stack_data, procedure_data] =
     input
     |> Kino.Input.read()
-    |> String.split("\n", trim: true)
-    |> Enum.split_while(fn
-      <<" 1 ", _::binary>> -> false
-      _ -> true
-    end)
+    |> String.split("\n\n", trim: true)
+    |> Enum.map(&String.split(&1, "\n", trim: true))
 
   stacks =
     stack_data
+    |> Enum.drop(-1)
     |> Enum.map(fn line ->
       line
       |> String.split("", trim: true)
