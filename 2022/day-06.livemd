@@ -1,0 +1,58 @@
+# Day 06
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+example_input =
+  Kino.Input.text("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.text("real input:")
+```
+
+## Common
+
+```elixir
+parse = fn input ->
+  input
+  |> Kino.Input.read()
+  |> String.split("", trim: true)
+end
+
+find_unique = fn input, size ->
+  input
+  |> Stream.with_index(1)
+  |> Stream.chunk_every(size, 1)
+  |> Stream.drop_while(fn list ->
+    list
+    |> Enum.map(&elem(&1, 0))
+    |> Enum.uniq()
+    |> length()
+    |> Kernel.!=(size)
+  end)
+  |> Enum.take(1)
+  |> get_in([Access.at(0), Access.at(-1), Access.elem(1)])
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> then(parse)
+|> find_unique.(4)
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> then(parse)
+|> find_unique.(14)
+```
