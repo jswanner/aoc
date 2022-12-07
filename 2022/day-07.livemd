@@ -1,0 +1,110 @@
+# Day 07
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+```elixir
+defmodule FileSystem do
+  def dir_sizes(data) do
+    dir_sizes(Map.to_list(data), [])
+  end
+
+  defp dir_sizes([], sizes), do: sizes
+
+  defp dir_sizes([{_, data} | rest], sizes) when is_map(data) do
+    [dir_size(Map.to_list(data), 0) | sizes] ++
+      dir_sizes(Map.to_list(data), []) ++ dir_sizes(rest, [])
+  end
+
+  defp dir_sizes([{_, _} | rest], sizes) do
+    dir_sizes(rest, sizes)
+  end
+
+  defp dir_size([], acc), do: acc
+
+  defp dir_size([{_, data} | rest], acc) when is_map(data) do
+    dir_size(Map.to_list(data), acc) + dir_size(rest, 0)
+  end
+
+  defp dir_size([{_, size} | rest], acc) do
+    dir_size(rest, size + acc)
+  end
+
+  def new(lines), do: new(lines, [], %{})
+
+  defp new([], _, data), do: data
+
+  defp new(["$ cd .." | rest], [_ | path], data) do
+    new(rest, path, data)
+  end
+
+  defp new(["$ cd " <> dir | rest], path, data) do
+    new(rest, [dir | path], put_in(data, Enum.reverse([dir | path]), %{}))
+  end
+
+  defp new(["$ ls" | rest], path, data) do
+    new(rest, path, data)
+  end
+
+  defp new(["dir " <> dir | rest], path, data) do
+    new(rest, path, put_in(data, Enum.reverse([dir | path]), %{}))
+  end
+
+  defp new([size_and_file | rest], path, data) do
+    [size, file] = String.split(size_and_file, " ")
+
+    new(rest, path, put_in(data, Enum.reverse([file | path]), String.to_integer(size)))
+  end
+end
+
+parse = fn input ->
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> then(parse)
+|> FileSystem.new()
+|> FileSystem.dir_sizes()
+|> Enum.filter(&(&1 <= 100_000))
+|> Enum.sum()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+[root | _] =
+  sizes =
+  real_input
+  |> then(parse)
+  |> FileSystem.new()
+  |> FileSystem.dir_sizes()
+
+total = 70_000_000
+unused = total - root
+needed = 30_000_000 - unused
+
+sizes
+|> Enum.sort()
+|> Enum.find(&(&1 >= needed))
+```
