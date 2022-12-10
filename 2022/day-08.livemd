@@ -1,0 +1,109 @@
+# Day 08
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+```elixir
+defmodule Grid do
+  def find_visible(grid, size) do
+    for i <- 1..(size - 2), j <- 1..(size - 2), reduce: [] do
+      acc -> if visible?(grid, size, {i, j}), do: [{i, j} | acc], else: acc
+    end
+  end
+
+  defp lines_of_sight(grid, size, {i, j}) do
+    [
+      {(i - 1)..0//-1, Stream.iterate(j, & &1)},
+      {(i + 1)..(size - 1), Stream.iterate(j, & &1)},
+      {Stream.iterate(i, & &1), (j - 1)..0//-1},
+      {Stream.iterate(i, & &1), (j + 1)..(size - 1)}
+    ]
+    |> Enum.map(fn {is, js} ->
+      for coord <- Enum.zip(is, js), into: [], do: grid[coord]
+    end)
+  end
+
+  def new(list) do
+    size = length(list)
+
+    grid =
+      for {row, i} <- Enum.with_index(list), {val, j} <- Enum.with_index(row), into: %{} do
+        {{i, j}, val}
+      end
+
+    {grid, size}
+  end
+
+  def scenic_scores(grid, size) do
+    for i <- 1..(size - 2), j <- 1..(size - 2), into: [] do
+      scenic_score(grid, size, {i, j})
+    end
+  end
+
+  defp scenic_score(grid, size, coord) do
+    height = grid[coord]
+
+    lines_of_sight(grid, size, coord)
+    |> Enum.map(
+      &Enum.reduce_while(&1, 0, fn other, count ->
+        if other < height, do: {:cont, count + 1}, else: {:halt, count + 1}
+      end)
+    )
+    |> Enum.product()
+  end
+
+  defp visible?(grid, size, coord) do
+    height = grid[coord]
+
+    lines_of_sight(grid, size, coord)
+    |> Enum.any?(fn line_of_sight -> Enum.all?(line_of_sight, &(&1 < height)) end)
+  end
+end
+
+parse = fn input ->
+  input
+  |> Kino.Input.read()
+  |> String.split("\n")
+  |> Enum.map(fn row -> String.graphemes(row) |> Enum.map(&String.to_integer/1) end)
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{grid, size} =
+  real_input
+  |> then(parse)
+  |> Grid.new()
+
+Grid.find_visible(grid, size)
+|> length()
+|> Kernel.+((size - 1) * 4)
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{grid, size} =
+  real_input
+  |> then(parse)
+  |> Grid.new()
+
+Grid.scenic_scores(grid, size)
+|> Enum.max()
+```
