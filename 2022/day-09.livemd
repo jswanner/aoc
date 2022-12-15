@@ -1,0 +1,103 @@
+# Day 09
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+```elixir
+defmodule Rope do
+  defp move([], _, _, visits), do: visits
+
+  defp move([{dir, count} | rest], coord, tails, visits) when count > 0 do
+    coord = move_head(dir, coord)
+
+    {tails, _} =
+      Enum.map_reduce(tails, coord, fn tail, coord ->
+        tail = move_tail(coord, tail)
+        {tail, tail}
+      end)
+
+    move([{dir, count - 1} | rest], coord, tails, MapSet.put(visits, List.last(tails)))
+  end
+
+  defp move([_ | rest], coord, tails, visits), do: move(rest, coord, tails, visits)
+
+  defp move_head(?R, {x, y}), do: {x + 1, y}
+  defp move_head(?U, {x, y}), do: {x, y + 1}
+  defp move_head(?L, {x, y}), do: {x - 1, y}
+  defp move_head(?D, {x, y}), do: {x, y - 1}
+
+  defp move_tail({xh, y}, {xt, y}) when xh > xt and xh - xt > 1, do: {xt + 1, y}
+  defp move_tail({x, yh}, {x, yt}) when yh > yt and yh - yt > 1, do: {x, yt + 1}
+  defp move_tail({xh, y}, {xt, y}) when xt > xh and xt - xh > 1, do: {xt - 1, y}
+  defp move_tail({x, yh}, {x, yt}) when yt > yh and yt - yh > 1, do: {x, yt - 1}
+
+  defp move_tail({xh, yh}, {xt, yt}) when xh > xt and xh - xt > 1 and yh > yt,
+    do: {xt + 1, yt + 1}
+
+  defp move_tail({xh, yh}, {xt, yt}) when xh > xt and xh - xt > 1 and yh < yt,
+    do: {xt + 1, yt - 1}
+
+  defp move_tail({xh, yh}, {xt, yt}) when yh > yt and yh - yt > 1 and xh > xt,
+    do: {xt + 1, yt + 1}
+
+  defp move_tail({xh, yh}, {xt, yt}) when yh > yt and yh - yt > 1 and xh < xt,
+    do: {xt - 1, yt + 1}
+
+  defp move_tail({xh, yh}, {xt, yt}) when xt > xh and xt - xh > 1 and yh > yt,
+    do: {xt - 1, yt + 1}
+
+  defp move_tail({xh, yh}, {xt, yt}) when xt > xh and xt - xh > 1 and yh < yt,
+    do: {xt - 1, yt - 1}
+
+  defp move_tail({xh, yh}, {xt, yt}) when yt > yh and yt - yh > 1 and xh > xt,
+    do: {xt + 1, yt - 1}
+
+  defp move_tail({xh, yh}, {xt, yt}) when yt > yh and yt - yh > 1 and xh < xt,
+    do: {xt - 1, yt - 1}
+
+  defp move_tail(_, tail), do: tail
+
+  def simulate(movements, tails), do: move(movements, {0, 0}, tails, MapSet.new([{0, 0}]))
+end
+
+parse = fn input ->
+  input
+  |> Kino.Input.read()
+  |> String.split("\n")
+  |> Enum.map(&String.to_charlist/1)
+  |> Enum.map(fn [dir, _ | count] -> {dir, List.to_integer(count)} end)
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> then(parse)
+|> Rope.simulate([{0, 0}])
+|> MapSet.size()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> then(parse)
+|> Rope.simulate([{0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, {0, 0}])
+|> MapSet.size()
+```
