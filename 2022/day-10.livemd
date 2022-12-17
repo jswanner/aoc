@@ -1,0 +1,74 @@
+# Day 10
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+```elixir
+parse = fn input ->
+  input
+  |> Kino.Input.read()
+  |> String.split("\n")
+  |> Enum.flat_map(fn
+    "addx " <> value -> [:noop, {:addx, String.to_integer(value)}]
+    "noop" -> [:noop]
+  end)
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+sample? = fn index -> Integer.mod(index - 20, 40) == 0 end
+
+maybe_add_sample = fn index, x, samples ->
+  if sample?.(index), do: [x * index | samples], else: samples
+end
+
+{x, samples} =
+  real_input
+  |> then(parse)
+  |> Enum.with_index(1)
+  |> Enum.reduce({1, []}, fn
+    {:noop, index}, {x, samples} -> {x, maybe_add_sample.(index, x, samples)}
+    {{:addx, value}, index}, {x, samples} -> {x + value, maybe_add_sample.(index, x, samples)}
+  end)
+
+Enum.sum(samples)
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+print? = fn index, x -> index in (x - 1)..(x + 1) end
+maybe_print = fn index, x -> if print?.(index, x), do: ?#, else: ?. end
+
+{rows, _} =
+  real_input
+  |> then(parse)
+  |> Enum.chunk_every(40)
+  |> Enum.map_reduce(1, fn row, x ->
+    row
+    |> Enum.with_index()
+    |> Enum.map_reduce(x, fn
+      {:noop, index}, x -> {maybe_print.(index, x), x}
+      {{:addx, value}, index}, x -> {maybe_print.(index, x), x + value}
+    end)
+  end)
+
+for row <- rows, do: IO.puts(row)
+```
