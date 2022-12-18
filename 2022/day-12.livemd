@@ -1,0 +1,100 @@
+# Day 12
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"},
+  {:libgraph, "~> 0.16.0"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+```elixir
+defmodule Heightmap do
+  def graph(map) do
+    for {coord, height} <- map, neighbor <- neighbors(coord), reduce: Graph.new() do
+      graph ->
+        if map[neighbor] <= height + 1 do
+          Graph.add_edge(graph, coord, neighbor)
+        else
+          graph
+        end
+    end
+  end
+
+  defp neighbors({i, j}) do
+    [
+      {i, j + 1},
+      {i + 1, j},
+      {i, j - 1},
+      {i - 1, j}
+    ]
+  end
+
+  def new(rows) do
+    for {row, i} <- Enum.with_index(rows),
+        {col, j} <- Enum.with_index(row),
+        reduce: {%{}, nil, nil} do
+      {map, s, e} ->
+        case col do
+          ?S -> {Map.put(map, {i, j}, ?a), {i, j}, e}
+          ?E -> {Map.put(map, {i, j}, ?z), s, {i, j}}
+          height -> {Map.put(map, {i, j}, height), s, e}
+        end
+    end
+  end
+end
+
+parse = fn input ->
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+  |> Enum.map(&to_charlist/1)
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{map, s, e} =
+  real_input
+  |> then(parse)
+  |> Heightmap.new()
+
+Heightmap.graph(map)
+|> Graph.dijkstra(s, e)
+|> length()
+|> Kernel.-(1)
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{map, _, e} =
+  real_input
+  |> then(parse)
+  |> Heightmap.new()
+
+graph = Heightmap.graph(map)
+
+map
+|> Enum.flat_map(&if(elem(&1, 1) == ?a, do: [elem(&1, 0)], else: []))
+|> Enum.flat_map(fn s ->
+  case Graph.dijkstra(graph, s, e) do
+    nil -> []
+    list -> [list |> length() |> Kernel.-(1)]
+  end
+end)
+|> Enum.sort()
+|> hd()
+```
