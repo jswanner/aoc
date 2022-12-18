@@ -1,0 +1,150 @@
+# Day 11
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+```elixir
+defmodule Monkey do
+  defstruct [:inspections, :items, :operation, :test, :when_false, :when_true]
+
+  defp operate(monkey, item, divisor, maximum) do
+    {fun, args} = monkey.operation
+
+    args =
+      Enum.map(args, fn
+        "old" -> item
+        val -> val
+      end)
+
+    apply(Kernel, fun, args) |> Integer.floor_div(divisor) |> rem(maximum)
+  end
+
+  def take_turn(index, monkeys, divisor, maximum) do
+    {monkey, monkeys} =
+      get_and_update_in(
+        monkeys,
+        [index],
+        &{&1, %{&1 | inspections: &1.inspections + length(&1.items), items: []}}
+      )
+
+    monkey.items
+    |> Enum.reduce(monkeys, fn item, monkeys ->
+      worry = operate(monkey, item, divisor, maximum)
+      recipient = test(monkey, worry)
+      update_in(monkeys, [recipient], &%{&1 | items: &1.items ++ [worry]})
+    end)
+  end
+
+  defp test(monkey, worry) do
+    if Integer.mod(worry, monkey.test) == 0, do: monkey.when_true, else: monkey.when_false
+  end
+end
+
+parse = fn input ->
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+  |> Enum.chunk_every(6)
+  |> Enum.with_index()
+  |> Enum.into(%{}, fn {lines, index} ->
+    monkey =
+      lines
+      |> Enum.reduce(struct!(Monkey, inspections: 0), fn
+        <<"  Starting items: ", items::binary>>, monkey ->
+          %{monkey | items: String.split(items, ", ") |> Enum.map(&String.to_integer/1)}
+
+        <<"  Operation: new = ", operation::binary>>, monkey ->
+          [arg1, op, arg2] =
+            operation
+            |> String.split()
+            |> Enum.map(fn val ->
+              case Integer.parse(val) do
+                :error -> val
+                {int, _} -> int
+              end
+            end)
+
+          %{monkey | operation: {String.to_existing_atom(op), [arg1, arg2]}}
+
+        <<"  Test: divisible by ", test::binary>>, monkey ->
+          %{monkey | test: String.to_integer(test)}
+
+        <<"    If true: throw to monkey ", when_true::binary>>, monkey ->
+          %{monkey | when_true: String.to_integer(when_true)}
+
+        <<"    If false: throw to monkey ", when_false::binary>>, monkey ->
+          %{monkey | when_false: String.to_integer(when_false)}
+
+        _, monkey ->
+          monkey
+      end)
+
+    {index, monkey}
+  end)
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+monkeys =
+  real_input
+  |> then(parse)
+
+maximum =
+  monkeys
+  |> Enum.map(&elem(&1, 1).test)
+  |> Enum.product()
+
+1..20
+|> Enum.reduce(monkeys, fn _, monkeys ->
+  monkeys
+  |> Enum.reduce(monkeys, fn {index, _}, monkeys ->
+    Monkey.take_turn(index, monkeys, 3, maximum)
+  end)
+end)
+|> Enum.map(&elem(&1, 1).inspections)
+|> Enum.sort(:desc)
+|> Enum.take(2)
+|> Enum.product()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+monkeys =
+  real_input
+  |> then(parse)
+
+maximum =
+  monkeys
+  |> Enum.map(&elem(&1, 1).test)
+  |> Enum.product()
+
+1..10000
+|> Enum.reduce(monkeys, fn _, monkeys ->
+  monkeys
+  |> Enum.reduce(monkeys, fn {index, _}, monkeys ->
+    Monkey.take_turn(index, monkeys, 1, maximum)
+  end)
+end)
+|> Enum.map(&elem(&1, 1).inspections)
+|> Enum.sort(:desc)
+|> Enum.take(2)
+|> Enum.product()
+```
