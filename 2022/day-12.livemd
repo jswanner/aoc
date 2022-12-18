@@ -92,7 +92,7 @@ map
 |> Enum.flat_map(fn s ->
   case Graph.dijkstra(graph, s, e) do
     nil -> []
-    list -> [list |> length() |> Kernel.-(1)]
+    list -> [length(list) - 1]
   end
 end)
 |> Enum.sort()
