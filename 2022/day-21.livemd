@@ -1,0 +1,128 @@
+# Day 21
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+```elixir
+defmodule MonkeyMath do
+  def reduce(map) do
+    Enum.reduce(map, map, fn
+      {_, int}, map when is_integer(int) ->
+        map
+
+      {key, {op, left, right}}, map when is_integer(left) and is_integer(right) ->
+        Map.put(map, key, apply(Kernel, op, [left, right]))
+
+      {key, {op, left, right}}, map when is_binary(left) or is_binary(right) ->
+        map =
+          case map[left] do
+            int when is_integer(int) -> Map.put(map, key, {op, int, right})
+            _ -> map
+          end
+
+        case map[right] do
+          int when is_integer(int) -> Map.put(map, key, {op, left, int})
+          _ -> map
+        end
+    end)
+  end
+
+  @reverse_ops %{
+    :div => :*,
+    :* => :div,
+    :+ => :-,
+    :- => :+
+  }
+
+  def resolve(%{"root" => {_, left, right}} = map) when is_integer(right) do
+    resolve(map, right, map[left])
+  end
+
+  defp resolve(_, acc, nil), do: acc
+
+  defp resolve(map, acc, {:-, left, right}) when is_integer(left) do
+    resolve(map, left - acc, map[right])
+  end
+
+  defp resolve(map, acc, {op, left, right}) when is_integer(left) do
+    resolve(map, apply(Kernel, @reverse_ops[op], [acc, left]), map[right])
+  end
+
+  defp resolve(map, acc, {op, left, right}) when is_integer(right) do
+    resolve(map, apply(Kernel, @reverse_ops[op], [acc, right]), map[left])
+  end
+end
+
+parse = fn input ->
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> then(parse)
+|> Enum.reduce(%{}, fn
+  <<key::binary-size(4), ": ", left::binary-size(4), " / ", right::binary>>, acc ->
+    Map.put(acc, key, {:div, left, right})
+
+  <<key::binary-size(4), ": ", left::binary-size(4), " ", op::binary-size(1), " ", right::binary>>,
+  acc ->
+    Map.put(acc, key, {String.to_existing_atom(op), left, right})
+
+  <<key::binary-size(4), ": ", int::binary>>, acc ->
+    Map.put(acc, key, String.to_integer(int))
+end)
+|> Stream.iterate(&MonkeyMath.reduce/1)
+|> Stream.drop_while(&is_tuple(&1["root"]))
+|> Enum.take(1)
+|> get_in([Access.at(0), Access.key!("root")])
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> then(parse)
+|> Enum.reduce(%{}, fn
+  <<"root: ", left::binary-size(4), _::binary-size(3), right::binary>>, acc ->
+    Map.put(acc, "root", {:==, left, right})
+
+  <<"humn: ", _::binary>>, acc ->
+    acc
+
+  <<key::binary-size(4), ": ", left::binary-size(4), " / ", right::binary>>, acc ->
+    Map.put(acc, key, {:div, left, right})
+
+  <<key::binary-size(4), ": ", left::binary-size(4), " ", op::binary-size(1), " ", right::binary>>,
+  acc ->
+    Map.put(acc, key, {String.to_existing_atom(op), left, right})
+
+  <<key::binary-size(4), ": ", int::binary>>, acc ->
+    Map.put(acc, key, String.to_integer(int))
+end)
+|> then(&{nil, &1})
+|> Stream.iterate(fn {_, map} -> {map, MonkeyMath.reduce(map)} end)
+|> Stream.drop_while(&(elem(&1, 0) != elem(&1, 1)))
+|> Enum.take(1)
+|> get_in([Access.at(0), Access.elem(1)])
+|> MonkeyMath.resolve()
+```
