@@ -1,0 +1,221 @@
+# Day 23
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+```elixir
+read = fn input ->
+  input
+  |> Kino.Input.read()
+end
+```
+
+```elixir
+defmodule Grid do
+  defstruct [:map, :neighbors]
+
+  def count_vacancies(grid) do
+    %{map: map} = grid
+    {xmin, xmax} = xs(map)
+    {ymin, ymax} = ys(map)
+    (xmax - xmin + 1) * (ymax - ymin + 1) - map_size(map)
+  end
+
+  def new(input) do
+    map =
+      for {row, x} <-
+            input
+            |> String.split("\n", trim: true)
+            |> Enum.map(&to_charlist/1)
+            |> Enum.with_index(),
+          {col, y} <- Enum.with_index(row),
+          col == ?#,
+          into: %{},
+          do: {{x, y}, true}
+
+    neighbors = [
+      fn {x, y} -> [{x - 1, y}, {x - 1, y + 1}, {x - 1, y - 1}] end,
+      fn {x, y} -> [{x + 1, y}, {x + 1, y + 1}, {x + 1, y - 1}] end,
+      fn {x, y} -> [{x, y - 1}, {x - 1, y - 1}, {x + 1, y - 1}] end,
+      fn {x, y} -> [{x, y + 1}, {x + 1, y + 1}, {x - 1, y + 1}] end
+    ]
+
+    struct!(__MODULE__, map: map, neighbors: neighbors)
+  end
+
+  def round(grid) do
+    grid
+    |> round_propose()
+    |> round_check()
+    |> round_finalize()
+  end
+
+  def round_check(grid) do
+    map =
+      for {coord, value} <- grid.map, reduce: %{} do
+        checked ->
+          case value do
+            [_] -> put_in(checked, [coord], true)
+            list -> Enum.reduce(list, checked, fn c, m -> put_in(m, [c], true) end)
+          end
+      end
+
+    %{grid | map: map}
+  end
+
+  def round_finalize(grid) do
+    %{neighbors: [head | neighbors]} = grid
+
+    %{grid | neighbors: neighbors ++ [head]}
+  end
+
+  def round_propose(grid) do
+    %{map: map, neighbors: neighbors} = grid
+
+    map =
+      for {coord, _} <- map, reduce: %{} do
+        proposed ->
+          cond do
+            Enum.any?(neighbors, fn fun -> Enum.any?(fun.(coord), &map[&1]) end) ->
+              case Enum.find(neighbors, fn fun -> not Enum.any?(fun.(coord), &map[&1]) end) do
+                fun when is_function(fun) ->
+                  [new_coord | _] = fun.(coord)
+                  Map.update(proposed, new_coord, [coord], &[coord | &1])
+
+                nil ->
+                  put_in(proposed, [coord], [coord])
+              end
+
+            true ->
+              put_in(proposed, [coord], [coord])
+          end
+      end
+
+    %{grid | map: map}
+  end
+
+  def to_string(grid) do
+    %{map: map} = grid
+    {xmin, xmax} = xs(map)
+    {ymin, ymax} = ys(map)
+
+    for x <- xmin..xmax, into: [] do
+      for y <- ymin..ymax do
+        if map[{x, y}], do: ?#, else: ?.
+      end
+    end
+    |> Enum.join("\n")
+    |> Kernel.<>("\n")
+  end
+
+  defp xs(map), do: map |> Enum.map(fn {{x, _}, _} -> x end) |> Enum.min_max()
+  defp ys(map), do: map |> Enum.map(fn {{_, y}, _} -> y end) |> Enum.min_max()
+end
+
+ExUnit.start(autorun: false)
+
+defmodule GridTest do
+  use ExUnit.Case, async: true
+
+  setup do
+    %{
+      input: """
+      .....
+      ..##.
+      ..#..
+      .....
+      ..##.
+      .....
+      """
+    }
+  end
+
+  describe "count_vacancies/1" do
+    test "creates data structure from input", %{input: input} do
+      assert Grid.new(input) |> Grid.count_vacancies() == 3
+    end
+  end
+
+  describe "new/1" do
+    test "creates data structure from input", %{input: input} do
+      assert Grid.new(input)
+    end
+  end
+
+  describe "round/1" do
+    test "moves elves according to rules", %{input: input} do
+      assert Grid.new(input) |> Grid.round() |> Grid.to_string() == """
+             ##
+             ..
+             #.
+             .#
+             #.
+             """
+    end
+
+    test "elf movement after 2 rounds", %{input: input} do
+      assert Grid.new(input) |> Grid.round() |> Grid.round() |> Grid.to_string() == """
+             .##.
+             #...
+             ...#
+             ....
+             .#..
+             """
+    end
+  end
+
+  describe "to_string/1" do
+    test "generates formatted output", %{input: input} do
+      assert Grid.new(input) |> Grid.to_string() == """
+             ##
+             #.
+             ..
+             ##
+             """
+    end
+  end
+end
+
+ExUnit.run()
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+grid =
+  real_input
+  |> then(read)
+  |> Grid.new()
+
+1..10
+|> Enum.reduce(grid, fn _, g -> Grid.round(g) end)
+|> Grid.count_vacancies()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> then(read)
+|> Grid.new()
+|> then(&{0, {%{map: nil}, &1}})
+|> Stream.iterate(fn {round, {_, grid}} -> {round + 1, {grid, Grid.round(grid)}} end)
+|> Stream.drop_while(fn {_, {old, new}} -> old.map != new.map end)
+|> Enum.take(1)
+|> get_in([Access.at(0), Access.elem(0)])
+```
