@@ -1,0 +1,191 @@
+# Day 15
+
+```elixir
+Mix.install([
+  {:flow, "~> 1.2"},
+  {:kino, "~> 0.7.0"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+```elixir
+defmodule Sensor do
+  defstruct [:beacon, :coord, :size]
+
+  def at_y?(sensor, y) do
+    %__MODULE__{coord: {_, yc}, size: size} = sensor
+    y >= yc - size and y <= yc + size
+  end
+
+  def covers?(sensor, {xt, yt}) do
+    %__MODULE__{coord: {xc, yc}, size: size} = sensor
+
+    x_size = size - abs(yt - yc)
+    y_size = size - abs(xt - xc)
+
+    xt >= xc - x_size and xt <= xc + x_size and yt >= yc - y_size and yt <= yc + y_size
+  end
+
+  def new({xc, yc} = coord, {xb, yb} = beacon) do
+    size = abs(xc - xb) + abs(yc - yb)
+    struct!(__MODULE__, beacon: beacon, coord: coord, size: size)
+  end
+
+  def uncovered_at_y(sensors, y, size) do
+    filtered_sensors = Enum.filter(sensors, &at_y?(&1, y))
+
+    0..size
+    |> Stream.filter(fn x -> not Enum.any?(filtered_sensors, &covers?(&1, {x, y})) end)
+    |> Enum.to_list()
+  end
+
+  def xs_at_y(sensor, y) do
+    %__MODULE__{coord: {xc, yc}} = sensor
+    offset = abs(y - yc)
+    size = sensor.size - offset
+    (xc - size)..(xc + size)
+  end
+end
+
+ExUnit.start(autorun: false)
+
+defmodule SensorTest do
+  use ExUnit.Case, async: true
+
+  describe "at_y?/2" do
+    test "returns true when y is covered by sensor" do
+      assert Sensor.new({8, 7}, {2, 10}) |> Sensor.at_y?(10)
+    end
+
+    test "returns false y is not covered by sensor" do
+      refute Sensor.new({8, 7}, {2, 10}) |> Sensor.at_y?(17)
+    end
+  end
+
+  describe "covers?/2" do
+    test "returns true when coordinate covered by sensor" do
+      assert Sensor.new({9, 16}, {10, 16}) |> Sensor.covers?({9, 15})
+    end
+
+    test "returns false when coordinate not covered by sensor" do
+      refute Sensor.new({9, 16}, {10, 16}) |> Sensor.covers?({8, 15})
+    end
+  end
+
+  describe "new/2" do
+    test "creates data structure from input" do
+      assert Sensor.new({8, 7}, {2, 10})
+    end
+  end
+
+  describe "uncovered_at_y/3" do
+    test "returns x values uncovered by sensors at y" do
+      assert [0, 1, 15, 16, 17, 18, 19, 20] ==
+               Sensor.uncovered_at_y(
+                 [Sensor.new({0, 0}, {1, 1}), Sensor.new({8, 7}, {2, 10})],
+                 10,
+                 20
+               )
+    end
+  end
+
+  describe "xs_at_y/2" do
+    test "returns x values sensor covers at y" do
+      assert 2..14 == Sensor.new({8, 7}, {2, 10}) |> Sensor.xs_at_y(10)
+    end
+  end
+end
+
+ExUnit.run()
+```
+
+```elixir
+parse = fn input ->
+  input
+  |> Kino.Input.read()
+  |> String.split("\n")
+  |> Enum.map(fn string ->
+    pattern =
+      ~r"Sensor at x=(?<xc>.+), y=(?<yc>.+): closest beacon is at x=(?<xb>.+), y=(?<yb>.+)"
+
+    %{"xc" => xc, "yc" => yc, "xb" => xb, "yb" => yb} = Regex.named_captures(pattern, string)
+    [xc, yc, xb, yb] = Enum.map([xc, yc, xb, yb], &String.to_integer/1)
+
+    Sensor.new({xc, yc}, {xb, yb})
+  end)
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+y_to_check = 2_000_000
+
+sensors =
+  real_input
+  |> then(parse)
+
+beacons_at_y =
+  sensors
+  |> Enum.reduce(MapSet.new(), fn sensor, set -> MapSet.put(set, sensor.beacon) end)
+  |> Enum.filter(fn
+    {_, ^y_to_check} -> true
+    _ -> false
+  end)
+
+sensors
+|> Enum.filter(&Sensor.at_y?(&1, y_to_check))
+|> Enum.map(&Sensor.xs_at_y(&1, y_to_check))
+|> Enum.reduce(MapSet.new(), fn range, set ->
+  MapSet.union(set, MapSet.new(range))
+end)
+|> MapSet.size()
+|> Kernel.-(length(beacons_at_y))
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+search_size = 4_000_000
+
+sensors =
+  real_input
+  |> then(parse)
+
+0..search_size
+|> Flow.from_enumerable()
+|> Flow.map(fn y ->
+  sensors
+  |> Enum.filter(&Sensor.at_y?(&1, y))
+  |> Enum.map(&Sensor.xs_at_y(&1, y))
+  |> Enum.sort()
+  |> Enum.reduce(fn
+    xs, acc ->
+      cond do
+        xs.first in acc and xs.last in acc -> acc
+        xs.first not in acc and xs.last in acc and xs.first < acc.first -> xs.first..acc.last
+        xs.last not in acc and xs.first in acc and xs.last > acc.last -> acc.first..xs.last
+        true -> acc
+      end
+  end)
+  |> then(&{y, &1})
+end)
+|> Flow.reject(fn {_y, range} -> range.last > search_size end)
+|> Enum.take(1)
+|> then(fn [{y, _}] ->
+  [x] = Sensor.uncovered_at_y(sensors, y, search_size)
+
+  search_size * x + y
+end)
+```
