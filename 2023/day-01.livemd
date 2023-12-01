@@ -1,0 +1,97 @@
+# Day 01
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.11"},
+  {:nimble_parsec, "~> 1.4"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+numbers = ~c"0123456789"
+filter = &(&1 in numbers)
+
+parse = fn input ->
+  input
+  |> Kino.Input.read()
+  |> String.split("\n", trim: true)
+end
+
+process = fn input ->
+  input
+  |> Enum.map(&(to_charlist(&1) |> Enum.filter(filter)))
+  |> Enum.map(fn
+    [n] -> [n, n]
+    [_, _] = l -> l
+    [h | r] -> [h, List.last(r)]
+  end)
+  |> Enum.map(&List.to_integer/1)
+  |> Enum.sum()
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+real_input
+|> then(parse)
+|> then(process)
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Replacer do
+  import NimbleParsec
+  one = string("o") |> lookahead(string("ne")) |> replace("1")
+  two = string("t") |> lookahead(string("wo")) |> replace("2")
+  three = string("t") |> lookahead(string("hree")) |> replace("3")
+  four = string("f") |> lookahead(string("our")) |> replace("4")
+  five = string("f") |> lookahead(string("ive")) |> replace("5")
+  six = string("s") |> lookahead(string("ix")) |> replace("6")
+  seven = string("s") |> lookahead(string("even")) |> replace("7")
+  eight = string("e") |> lookahead(string("ight")) |> replace("8")
+  nine = string("n") |> lookahead(string("ine")) |> replace("9")
+
+  defparsec(
+    :replace,
+    repeat(
+      choice([
+        one,
+        two,
+        three,
+        four,
+        five,
+        six,
+        seven,
+        eight,
+        nine,
+        utf8_string([], 1)
+      ])
+    )
+  )
+end
+
+real_input
+|> then(parse)
+|> Enum.map(
+  &case Replacer.replace(&1) do
+    {:ok, found, "", _, _, _} -> Enum.join(found)
+  end
+)
+|> then(process)
+```
