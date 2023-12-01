@@ -54,7 +54,7 @@ real_input
 defmodule Replacer do
   import NimbleParsec
 
-  [one, two, three, four, five, six, seven, eight, nine] =
+  replacements =
     for {<<head::binary-size(1), rest::binary>>, numeral} <-
           Enum.with_index(~w[one two three four five six seven eight nine], 1) do
       numeral = to_string(numeral)
@@ -65,23 +65,9 @@ defmodule Replacer do
       ])
     end
 
-  defparsec(
-    :replace,
-    repeat(
-      choice([
-        one,
-        two,
-        three,
-        four,
-        five,
-        six,
-        seven,
-        eight,
-        nine,
-        ignore(utf8_string([], 1))
-      ])
-    )
-  )
+  ignored = ignore(utf8_string([], 1))
+
+  defparsec(:replace, repeat(choice(replacements ++ [ignored])))
 end
 
 real_input
