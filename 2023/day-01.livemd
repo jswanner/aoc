@@ -30,11 +30,7 @@ end
 process = fn input ->
   input
   |> Enum.map(&(to_charlist(&1) |> Enum.filter(filter)))
-  |> Enum.map(fn
-    [n] -> [n, n]
-    [_, _] = l -> l
-    [h | r] -> [h, List.last(r)]
-  end)
+  |> Enum.map(&[hd(&1), List.last(&1)])
   |> Enum.map(&List.to_integer/1)
   |> Enum.sum()
 end
@@ -57,15 +53,17 @@ real_input
 ```elixir
 defmodule Replacer do
   import NimbleParsec
-  one = string("o") |> lookahead(string("ne")) |> replace("1")
-  two = string("t") |> lookahead(string("wo")) |> replace("2")
-  three = string("t") |> lookahead(string("hree")) |> replace("3")
-  four = string("f") |> lookahead(string("our")) |> replace("4")
-  five = string("f") |> lookahead(string("ive")) |> replace("5")
-  six = string("s") |> lookahead(string("ix")) |> replace("6")
-  seven = string("s") |> lookahead(string("even")) |> replace("7")
-  eight = string("e") |> lookahead(string("ight")) |> replace("8")
-  nine = string("n") |> lookahead(string("ine")) |> replace("9")
+
+  [one, two, three, four, five, six, seven, eight, nine] =
+    for {<<head::binary-size(1), rest::binary>>, numeral} <-
+          Enum.with_index(~w[one two three four five six seven eight nine], 1) do
+      numeral = to_string(numeral)
+
+      choice([
+        string(numeral),
+        string(head) |> lookahead(string(rest)) |> replace(numeral)
+      ])
+    end
 
   defparsec(
     :replace,
@@ -80,7 +78,7 @@ defmodule Replacer do
         seven,
         eight,
         nine,
-        utf8_string([], 1)
+        ignore(utf8_string([], 1))
       ])
     )
   )
