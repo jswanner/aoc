@@ -1,0 +1,77 @@
+# Day 02
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.11"},
+  {:nimble_parsec, "~> 1.4"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+parse = fn input ->
+  for {line, line_idx} <- input |> Kino.Input.read() |> String.split("\n") |> Enum.with_index(1),
+      [_, line] = String.split(line, ": "),
+      {set, set_idx} <- String.split(line, "; ") |> Enum.with_index(1),
+      count_and_color <- String.split(set, ", "),
+      [count, color] = String.split(count_and_color, " "),
+      count = String.to_integer(count),
+      reduce: {%{}, %{}} do
+    {acc, maxes} ->
+      {Map.update(acc, {line_idx, set_idx, color}, count, &(&1 + count)),
+       Map.put(maxes, line_idx, set_idx)}
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{games, maxes} =
+  real_input
+  |> then(parse)
+
+game_max = Map.keys(maxes) |> Enum.max()
+
+for {game, set_count} <- maxes,
+    set <- 1..set_count,
+    {color, cutoff} <- [{"red", 12}, {"green", 13}, {"blue", 14}],
+    reduce: Map.new(1..game_max, &{&1, true}) do
+  acc ->
+    case Map.get(games, {game, set, color}, 0) do
+      count when count > cutoff -> Map.delete(acc, game)
+      _ -> acc
+    end
+end
+|> Map.keys()
+|> Enum.sum()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{games, _maxes} =
+  real_input
+  |> then(parse)
+
+games
+|> Enum.reduce(%{}, fn {{game, _, color}, count}, acc ->
+  Map.update(acc, {game, color}, count, &max(&1, count))
+end)
+|> Enum.reduce(%{}, fn {{game, _}, min}, acc -> Map.update(acc, game, min, &(&1 * min)) end)
+|> Map.values()
+|> Enum.sum()
+```
