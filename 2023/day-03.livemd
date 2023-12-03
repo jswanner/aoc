@@ -1,0 +1,126 @@
+# Day 03
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.11"},
+  {:nimble_parsec, "~> 1.4"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Parser do
+  import NimbleParsec
+
+  number = integer(min: 1) |> unwrap_and_tag(:number)
+  period = string(".") |> replace(:period)
+  symbol = ascii_char([{:not, ?\n}]) |> unwrap_and_tag(:symbol)
+
+  char = choice([period, number, symbol])
+
+  line =
+    times(char, min: 1)
+    |> ignore(ascii_char([?\n]))
+    |> wrap()
+
+  lines = times(line, min: 1)
+
+  defparsec(:parse, lines |> eos() |> reduce(:reducer))
+
+  defp reducer(lines) do
+    {acc, symbols, gears, _} =
+      for {line, i} <- Enum.with_index(lines),
+          {char, reset_if_zero} <- Enum.with_index(line),
+          reduce: {[], [], [], 0} do
+        {numbers, symbols, gears, j} ->
+          j = if reset_if_zero == 0, do: 0, else: j
+
+          case char do
+            :period ->
+              {numbers, symbols, gears, j + 1}
+
+            {:number, number} ->
+              length = length(Integer.digits(number))
+
+              coords =
+                for j <- j..(j + length - 1), do: {i, j}
+
+              {[{number, coords} | numbers], symbols, gears, j + length}
+
+            {:symbol, ?*} ->
+              {numbers, [{i, j} | symbols], [{i, j} | gears], j + 1}
+
+            {:symbol, _} ->
+              {numbers, [{i, j} | symbols], gears, j + 1}
+          end
+      end
+
+    {acc, symbols, gears}
+  end
+end
+
+parse = fn input ->
+  input
+  |> Kino.Input.read()
+  |> Parser.parse()
+  |> case do
+    {:ok, [acc], "", _, _, _} -> acc
+  end
+end
+
+neighbors = fn {i, j} ->
+  for x <- (i - 1)..(i + 1), y <- (j - 1)..(j + 1), x != i or y != j, do: {x, y}
+end
+
+neighbor? = fn coord, list ->
+  neighbors.(coord)
+  |> Enum.any?(&(&1 in list))
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{numbers, symbols, _} =
+  real_input
+  |> then(parse)
+
+numbers
+|> Enum.filter(fn {_, coords} ->
+  coords
+  |> Enum.any?(&neighbor?.(&1, symbols))
+end)
+|> Enum.map(&elem(&1, 0))
+|> Enum.sum()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{numbers, _, gears} =
+  real_input
+  |> then(parse)
+
+gears
+|> Enum.reduce(0, fn gear, acc ->
+  case Enum.filter(numbers, fn {_, coords} ->
+         Enum.any?(coords, &neighbor?.(&1, [gear]))
+       end) do
+    [{a, _}, {b, _}] -> acc + a * b
+    _ -> acc
+  end
+end)
+```
