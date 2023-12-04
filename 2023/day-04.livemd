@@ -1,0 +1,128 @@
+# Day 04
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.11"},
+  {:nimble_parsec, "~> 1.4"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Parser do
+  import NimbleParsec
+
+  prefix =
+    string("Card")
+    |> ignore(ascii_string([?\s], min: 1))
+    |> integer(min: 1)
+    |> string(": ")
+    |> ignore()
+
+  number =
+    choice([
+      integer(2),
+      ignore(ascii_char([?\s])) |> integer(1)
+    ])
+    |> ignore(ascii_string([?\s], max: 1))
+
+  winning_numbers =
+    number
+    |> times(min: 1)
+    |> map(:add_true)
+    |> wrap()
+    |> map({Map, :new, []})
+    |> unwrap_and_tag(:winning_numbers)
+
+  own_numbers = number |> times(min: 1) |> tag(:own_numbers)
+
+  game =
+    prefix
+    |> concat(winning_numbers)
+    |> concat(ignore(string("| ")))
+    |> concat(own_numbers)
+    |> concat(ignore(ascii_string([?\n], max: 1)))
+    |> wrap()
+    |> map({Map, :new, []})
+
+  games = times(game, min: 1)
+
+  defparsec(:parse, games |> eos())
+
+  defp add_true(val), do: {val, true}
+end
+
+parse = fn input ->
+  input
+  |> Kino.Input.read()
+  |> Parser.parse()
+  |> case do
+    {:ok, acc, "", _, _, _} -> acc
+  end
+end
+
+grade = fn game ->
+  game.own_numbers
+  |> Enum.count(&game.winning_numbers[&1])
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+score = fn grade ->
+  grade
+  |> then(&Stream.duplicate(nil, &1))
+  |> Enum.reduce(0, fn
+    _, 0 -> 1
+    _, i -> i * 2
+  end)
+end
+
+real_input
+|> then(parse)
+|> Enum.map(grade)
+|> Enum.map(score)
+|> Enum.sum()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+games =
+  real_input
+  |> then(parse)
+  |> Enum.with_index(1)
+  |> Map.new(fn {game, id} -> {id, put_in(game, [:copies], 1)} end)
+
+1..Enum.max(Map.keys(games))
+|> Enum.reduce(games, fn id, games ->
+  game = games[id]
+
+  case grade.(game) do
+    0 ->
+      games
+
+    count ->
+      (id + 1)..(id + count)
+      |> Enum.reduce(games, fn id, games ->
+        update_in(games, [id, :copies], &(&1 + game.copies))
+      end)
+  end
+end)
+|> Enum.map(&elem(&1, 1).copies)
+|> Enum.sum()
+```
