@@ -1,0 +1,77 @@
+# Day 06
+
+## Common
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+# Time:      7  15   30
+# Distance:  9  40  200
+example_input = [{7, 9}, {15, 40}, {30, 200}]
+
+# Time:        41     66     72     66
+# Distance:   244   1047   1228   1040
+real_input = [{41, 244}, {66, 1047}, {72, 1228}, {66, 1040}]
+
+defmodule Race do
+  def count_possibilities({time, distance}) do
+    0..time
+    |> Stream.map(&((time - &1) * &1))
+    |> Stream.drop_while(&(&1 <= distance))
+    |> Stream.take_while(&(&1 > distance))
+    |> Enum.count()
+  end
+end
+
+ExUnit.start(autorun: false)
+
+defmodule RaceTest do
+  use ExUnit.Case, async: true
+
+  describe "count_possibilities/1" do
+    test "returns correct count for {7, 9}" do
+      assert 4 = Race.count_possibilities({7, 9})
+    end
+
+    test "returns correct count for {30, 200}" do
+      assert 9 = Race.count_possibilities({30, 200})
+    end
+  end
+end
+
+ExUnit.run()
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+# Time:      7  15   30
+# Distance:  9  40  200
+example_input = [{7, 9}, {15, 40}, {30, 200}]
+
+# Time:        41     66     72     66
+# Distance:   244   1047   1228   1040
+real_input = [{41, 244}, {66, 1047}, {72, 1228}, {66, 1040}]
+
+real_input
+|> Enum.map(&Race.count_possibilities/1)
+|> Enum.product()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+# Time:      7  15   30
+# Distance:  9  40  200
+example_input = {71530, 940_200}
+
+# Time:        41     66     72     66
+# Distance:   244   1047   1228   1040
+real_input = {41_667_266, 244_104_712_281_040}
+
+Race.count_possibilities(real_input)
+```
