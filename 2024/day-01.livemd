@@ -1,0 +1,70 @@
+# Day 01
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.14"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule AOC do
+  def parse(input) do
+    input
+    |> Kino.Input.read()
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.split(&1, ~r/\s/, trim: true))
+    |> Enum.reduce({[], []}, fn [left, right], {lefts, rights} ->
+      {[String.to_integer(left) | lefts], [String.to_integer(right) | rights]}
+    end)
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Part1 do
+  def process({lefts, rights}) do
+    Enum.map([lefts, rights], &Enum.sort/1)
+    |> Enum.zip_with(fn [left, right] -> abs(left - right) end)
+    |> Enum.sum()
+  end
+end
+
+real_input
+|> AOC.parse()
+|> Part1.process()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Part2 do
+  def process({lefts, rights}) do
+    frequencies = Enum.frequencies(rights)
+
+    lefts
+    |> Enum.reduce(0, fn left, sum ->
+      sum + left * Map.get(frequencies, left, 0)
+    end)
+  end
+end
+
+real_input
+|> AOC.parse()
+|> Part2.process()
+```
