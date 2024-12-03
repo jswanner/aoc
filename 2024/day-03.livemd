@@ -1,0 +1,106 @@
+# Day 03
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.14"},
+  {:nimble_parsec, "~> 1.4"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule AOC do
+  def parse(input) do
+    input
+    |> Kino.Input.read()
+    |> Parser.parse()
+    |> case do
+      {:ok, acc, "", _, _, _} -> acc
+    end
+  end
+end
+
+defmodule Parser do
+  import NimbleParsec
+
+  disable =
+    ignore(string("don't()"))
+    |> tag(:disable)
+
+  enable =
+    ignore(string("do()"))
+    |> tag(:enable)
+
+  operand = integer(max: 3, min: 1)
+
+  mul =
+    ignore(string("mul("))
+    |> concat(operand)
+    |> ignore(string(","))
+    |> concat(operand)
+    |> ignore(string(")"))
+    |> tag(:mul)
+
+  instruction = choice([disable, enable, mul])
+
+  instructions =
+    eventually(instruction)
+    |> repeat()
+
+  defparsec(:parse, instructions |> eventually(eos()))
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Part1 do
+  def process(instructions) do
+    instructions
+    |> Enum.reduce(0, fn
+      {:mul, [a, b]}, acc -> acc + a * b
+      _, acc -> acc
+    end)
+  end
+end
+
+real_input
+|> AOC.parse()
+|> Part1.process()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Part2 do
+  def process(instructions) do
+    {_, sum} =
+      instructions
+      |> Enum.reduce({:enabled, 0}, fn
+        {:mul, [a, b]}, {:enabled, sum} -> {:enabled, sum + a * b}
+        {:disable, _}, {:enabled, sum} -> {:disabled, sum}
+        {:enable, _}, {:disabled, sum} -> {:enabled, sum}
+        _, acc -> acc
+      end)
+
+    sum
+  end
+end
+
+real_input
+|> AOC.parse()
+|> Part2.process()
+```
