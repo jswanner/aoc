@@ -1,0 +1,162 @@
+# Day 04
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.14"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule AOC do
+  def parse(input) do
+    input
+    |> Kino.Input.read()
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.split(&1, "", trim: true))
+  end
+
+  def to_grid(input) do
+    for {row, i} <- Enum.with_index(input),
+        {cell, j} <- Enum.with_index(row),
+        into: %{size: length(input)} do
+      {{i, j}, cell}
+    end
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Part1 do
+  def process(grid) do
+    for i <- 0..(grid.size - 1),
+        j <- 0..(grid.size - 1),
+        coord = {i, j},
+        grid[coord] == "X",
+        reduce: 0 do
+      sum ->
+        sum = if east?(grid, coord), do: sum + 1, else: sum
+        sum = if north?(grid, coord), do: sum + 1, else: sum
+        sum = if northeast?(grid, coord), do: sum + 1, else: sum
+        sum = if northwest?(grid, coord), do: sum + 1, else: sum
+        sum = if south?(grid, coord), do: sum + 1, else: sum
+        sum = if southeast?(grid, coord), do: sum + 1, else: sum
+        sum = if southwest?(grid, coord), do: sum + 1, else: sum
+        sum = if west?(grid, coord), do: sum + 1, else: sum
+        sum
+    end
+  end
+
+  defp all_match?(enum, grid) do
+    enum
+    |> Enum.zip(~w[M A S])
+    |> Enum.all?(fn {coord, letter} -> grid[coord] == letter end)
+  end
+
+  defp east?(grid, {i, j}) do
+    Enum.zip(List.duplicate(i, 3), (j + 1)..(j + 3))
+    |> all_match?(grid)
+  end
+
+  defp north?(grid, {i, j}) do
+    Enum.zip((i - 1)..(i - 3)//-1, List.duplicate(j, 3))
+    |> all_match?(grid)
+  end
+
+  defp northeast?(grid, {i, j}) do
+    Enum.zip((i - 1)..(i - 3)//-1, (j + 1)..(j + 3))
+    |> all_match?(grid)
+  end
+
+  defp northwest?(grid, {i, j}) do
+    Enum.zip((i - 1)..(i - 3)//-1, (j - 1)..(j - 3)//-1)
+    |> all_match?(grid)
+  end
+
+  defp south?(grid, {i, j}) do
+    Enum.zip((i + 1)..(i + 3), List.duplicate(j, 3))
+    |> all_match?(grid)
+  end
+
+  defp southeast?(grid, {i, j}) do
+    Enum.zip((i + 1)..(i + 3), (j + 1)..(j + 3))
+    |> all_match?(grid)
+  end
+
+  defp southwest?(grid, {i, j}) do
+    Enum.zip((i + 1)..(i + 3), (j - 1)..(j - 3)//-1)
+    |> all_match?(grid)
+  end
+
+  defp west?(grid, {i, j}) do
+    Enum.zip(List.duplicate(i, 3), (j - 1)..(j - 3)//-1)
+    |> all_match?(grid)
+  end
+end
+
+real_input
+|> AOC.parse()
+|> AOC.to_grid()
+|> Part1.process()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Part2 do
+  def process(grid) do
+    for i <- 0..(grid.size - 1),
+        j <- 0..(grid.size - 1),
+        coord = {i, j},
+        grid[coord] == "A",
+        reduce: 0 do
+      sum ->
+        if northeast?(grid, coord) and southeast?(grid, coord), do: sum + 1, else: sum
+    end
+  end
+
+  defp any_match?(enums, grid) do
+    enums
+    |> Enum.any?(fn enum ->
+      enum
+      |> Enum.all?(fn {coord, letter} -> grid[coord] == letter end)
+    end)
+  end
+
+  defp northeast?(grid, {i, j}) do
+    [
+      [{{i + 1, j - 1}, "M"}, {{i - 1, j + 1}, "S"}],
+      [{{i + 1, j - 1}, "S"}, {{i - 1, j + 1}, "M"}]
+    ]
+    |> any_match?(grid)
+  end
+
+  defp southeast?(grid, {i, j}) do
+    [
+      [{{i - 1, j - 1}, "M"}, {{i + 1, j + 1}, "S"}],
+      [{{i - 1, j - 1}, "S"}, {{i + 1, j + 1}, "M"}]
+    ]
+    |> any_match?(grid)
+  end
+end
+
+real_input
+|> AOC.parse()
+|> AOC.to_grid()
+|> Part2.process()
+```
