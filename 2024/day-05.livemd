@@ -1,0 +1,126 @@
+# Day 05
+
+```elixir
+Mix.install([
+  {:kino, "~> 0.14"},
+  {:nimble_parsec, "~> 1.4"}
+])
+
+example_input =
+  Kino.Input.textarea("example input:")
+  |> Kino.render()
+
+real_input = Kino.Input.textarea("real input:")
+```
+
+## Common
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule AOC do
+  def parse(input) do
+    input
+    |> Kino.Input.read()
+    |> Parser.parse()
+    |> case do
+      {:ok, acc, "", _, _, _} ->
+        Map.new(acc)
+        |> Map.update!(:rules, fn rules ->
+          for [a, b] <- rules, reduce: %{} do
+            acc ->
+              update_in(acc[a], fn
+                nil -> [b]
+                list -> [b | list]
+              end)
+          end
+        end)
+    end
+  end
+end
+
+defmodule Parser do
+  import NimbleParsec
+
+  rule =
+    integer(min: 1)
+    |> ignore(string("|"))
+    |> integer(min: 1)
+    |> ignore(string("\n"))
+    |> wrap()
+
+  rules = times(rule, min: 1) |> tag(:rules)
+
+  update_pages =
+    choice([integer(min: 1), ignore(string(","))])
+    |> times(min: 1)
+    |> wrap()
+
+  updates =
+    update_pages
+    |> choice([ignore(string("\n")), eos()])
+    |> times(min: 1)
+    |> tag(:updates)
+
+  document =
+    rules
+    |> ignore(string("\n"))
+    |> concat(updates)
+
+  defparsec(:parse, document)
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Part1 do
+  def process(document) do
+    document.updates
+    |> Enum.filter(fn update ->
+      update
+      |> Enum.chunk_every(2, 1, :discard)
+      |> Enum.all?(fn [a, b] -> b in Map.get(document.rules, a, []) end)
+    end)
+    |> Enum.reduce(0, fn update, sum ->
+      mid = div(length(update), 2)
+      Enum.at(update, mid) + sum
+    end)
+  end
+end
+
+real_input
+|> AOC.parse()
+|> Part1.process()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule Part2 do
+  def process(document) do
+    document.updates
+    |> Enum.reject(fn update ->
+      update
+      |> Enum.chunk_every(2, 1, :discard)
+      |> Enum.all?(fn [a, b] -> b in Map.get(document.rules, a, []) end)
+    end)
+    |> Enum.map(fn update ->
+      update
+      |> Enum.sort(fn a, b -> b in Map.get(document.rules, a, []) end)
+    end)
+    |> Enum.reduce(0, fn update, sum ->
+      mid = div(length(update), 2)
+      Enum.at(update, mid) + sum
+    end)
+  end
+end
+
+real_input
+|> AOC.parse()
+|> Part2.process()
+```
